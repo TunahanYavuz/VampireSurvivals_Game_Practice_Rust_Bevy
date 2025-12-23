@@ -1,0 +1,304 @@
+use std::ops::{Deref, DerefMut};
+use crate::plugins::aabb::AABB;
+use crate::plugins::enemy::*;
+use crate::plugins::player::Player;
+use crate::plugins::texture_handling::TextureAssets;
+use crate::plugins::timers::*;
+use crate::plugins::weapons::*;
+use crate::plugins::game_state::GameState;
+use bevy::asset::AssetServer;
+use bevy::prelude::*;
+use rand::Rng;
+mod plugins;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .init_state::<GameState>()
+        .init_resource::<TextureAssets>()
+        .insert_resource(Atlases::default())
+        .add_systems(Startup, minimal_setup)
+        .init_resource::<EnemySpawnTimer>()
+        .init_resource::<EnemyMoveTimer>()
+        .init_resource::<ShootTimer>()
+        .init_resource::<PlayerHealthReduceTimer>()
+        .add_systems(
+            Update,
+            (
+                prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
+                (
+                    follow,
+                    fire_laser_weapons,
+                    fire_rocket_weapons,
+                    move_player,
+                    spawn_enemies,
+                    reduce_player_health,
+                    fire_flame_weapons,
+                    move_projectiles,
+                ).run_if(in_state(GameState::Playing)),
+            ),
+        )
+        .add_systems(OnExit(GameState::Playing), cleanup_game)
+        .add_systems(OnEnter(GameState::Loading), cleanup_game)
+        .add_systems(OnEnter(GameState::GameOver), show_game_over_screen)
+        .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
+        .run();
+}
+
+// Marker component - oyun sırasında oluşturulan tüm entity'lere eklenecek
+#[derive(Component)]
+struct GameEntity;
+
+#[derive(Resource, Default)]
+struct Atlases {
+    body: Option<Handle<TextureAtlasLayout>>,
+    shield: Option<Handle<TextureAtlasLayout>>,
+    ready: bool,
+}
+
+fn minimal_setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>) {
+    // Sadece kamera ve arka plan - bunlar hiç silinmeyecek
+    commands.spawn((Camera2d, Camera { ..default() }));
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(50000.0, 50000.0))),
+        MeshMaterial2d(materials.add(Color::linear_rgb(0.01, 0.01, 0.01))),
+        Transform::from_translation(Vec3::new(0.0, 0.0, -200.0)),
+    ));
+}
+
+fn prepare_atlases_and_spawn(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    images: Res<Assets<Image>>,
+    textures: Res<TextureAssets>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut atlases: ResMut<Atlases>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if atlases.ready {
+        return;
+    }
+
+    if !asset_server.load_state(&textures.body).is_loaded()
+        || !asset_server.load_state(&textures.shield).is_loaded()
+    {
+        return;
+    }
+
+    let image = match images.get(&textures.body) {
+        Some(img) => img,
+        None => return,
+    };
+
+    let frame_w = (image.texture_descriptor.size.width as f32 / 9.0).round() as u32;
+    let frame_h = (image.texture_descriptor.size.height as f32 / 4.0).round() as u32;
+    let layout = TextureAtlasLayout::from_grid(UVec2::new(frame_w, frame_h), 9, 4, None, None);
+
+    let body_atlas = texture_atlases.add(layout.clone());
+    let shield_atlas = texture_atlases.add(layout);
+
+    atlases.body = Some(body_atlas.clone());
+    atlases.shield = Some(shield_atlas.clone());
+    atlases.ready = true;
+
+    // Player spawn - GameEntity marker ile işaretle
+    let player_entity = commands.spawn((
+        GameEntity,  // ← Marker eklendi
+        Sprite::from_atlas_image(
+            textures.body.clone(),
+            TextureAtlas {
+                layout: body_atlas,
+                index: 0,
+            },
+        ),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        Player {
+            health: 100,
+            movement: 200.,
+            ..default()
+        },
+        AABB {
+            max_x: 50.,
+            max_y: 50.,
+            min_x: -50.,
+            min_y: -50.,
+            width: 100.,
+            height: 100.,
+        },
+    )).id();
+    spawn_weapons_for_player(&mut commands, player_entity, Vec3::ZERO);
+    next_state.set(GameState::Playing);
+}
+
+
+
+
+fn spawn_enemies(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut spawn_timer: ResMut<EnemySpawnTimer>,
+    player_query: Query<&Transform, With<Player>>,
+    atlases: Res<Atlases>,
+    textures: Res<TextureAssets>,
+) {
+    spawn_timer.timer.tick(time.delta());
+    if !spawn_timer.timer.just_finished() { return; }
+    if !atlases.ready { return; }
+
+    // Query'den güvenli bir şekilde al
+    let Ok(player_transform) = player_query.single() else {
+        return;
+    };
+
+    let nx: f32 = rand::rng().random_range(-300.0 - player_transform.translation.x..-100.0 - player_transform.translation.x);
+    let ny: f32 = rand::rng().random_range(-300.0 - player_transform.translation.y..-100.0 - player_transform.translation.y);
+    let px: f32 = rand::rng().random_range(100.0 + player_transform.translation.x..300.0 + player_transform.translation.x);
+    let py: f32 = rand::rng().random_range(100.0 + player_transform.translation.y..300.0 + player_transform.translation.y);
+    let x = if nx.abs() > px.abs() { nx } else { px };
+    let y = if ny.abs() > py.abs() { ny } else { py };
+
+    let body_atlas = atlases.body.as_ref().unwrap().clone();
+    let shield_atlas = atlases.shield.as_ref().unwrap().clone();
+
+    commands
+        .spawn((
+            GameEntity,  // ← Marker eklendi
+            Transform::from_xyz(x, y, 0.0),
+            Enemy { health: 100, damage: 100, speed: rand::rng().random_range(100.0..300.0), },
+            InheritedVisibility::default(),
+            AABB { max_x: x + 25., max_y: y + 25., min_x: x - 25., min_y: y - 25., width: 50., height: 50. },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                GameEntity,  // ← Child'lara da marker
+                Sprite::from_atlas_image(textures.body.clone(), TextureAtlas { layout: body_atlas.clone(), index: 15 }),
+                EnemySprit { index: 0 },
+            ));
+            parent.spawn((
+                GameEntity,  // ← Child'lara da marker
+                Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas.clone(), index: 15 }),
+                EnemySprit { index: 0 },
+            ));
+        });
+}
+
+fn move_player(
+    mut player_query: Query<(&mut Transform, &Player, &mut AABB, &mut Sprite), With<Player>>,
+    mut camera_query: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    atlases: Res<Atlases>,
+    enemy_move_timer: Res<EnemyMoveTimer>,
+) {
+    if !atlases.ready {
+        return;
+    }
+
+    // Single yerine Query kullanıp güvenli kontrol
+    let Ok((mut transform, player, mut aabb, mut sprite)) = player_query.single_mut() else {
+        return;
+    };
+
+    let Ok(mut camera_transform) = camera_query.single_mut() else {
+        return;
+    };
+
+    if sprite.texture_atlas.is_none() {
+        if let Some(layout_handle) = &atlases.body {
+            sprite.texture_atlas = Some(TextureAtlas {
+                layout: layout_handle.clone(),
+                index: 0,
+            });
+        }
+    }
+
+    player.move_around(
+        &mut transform,
+        &mut aabb,
+        &mut sprite,
+        &mut camera_transform,
+        &keyboard_input,
+        &time,
+        &enemy_move_timer,
+    );
+}
+
+fn reduce_player_health(
+    mut commands: Commands,
+    mut player_query: Query<(&mut Player, &mut AABB, Entity), With<Player>>,
+    enemy_query: Query<(&AABB, &Enemy), (With<Enemy>, Without<Player>)>,
+    mut player_health_reduce_timer: ResMut<PlayerHealthReduceTimer>,
+    time: Res<Time>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    player_health_reduce_timer.timer.tick(time.delta());
+    if !player_health_reduce_timer.timer.just_finished() {
+        return;
+    }
+
+    let Ok((mut player, aabb, entity)) = player_query.single_mut() else {
+        return;
+    };
+
+    player.take_damage(entity, &mut commands, &enemy_query, &aabb);
+
+    if player.health == 0 {
+        next_state.set(GameState::GameOver);
+    }
+}
+
+// OnExit(GameState::Playing) ile tetiklenir - sadece GameEntity olanları temizle
+fn cleanup_game(
+    mut commands: Commands,
+    game_entities: Query<Entity, With<GameEntity>>,
+) {
+    for entity in game_entities.iter() {
+        // Bevy 0.15+ ile despawn_recursive yerine despawn_descendants + despawn
+        commands.entity(entity).try_despawn();
+    }
+}
+
+// GameOver ekranını göster
+fn show_game_over_screen(mut commands: Commands) {
+    commands.spawn((
+        GameEntity,  // Bu da oyun entity'si, tekrar restart olunca silinecek
+        Text::new("Game Over! Press R to Restart"),
+        TextFont {
+            font_size: 50.0,
+            ..default()
+        },
+        TextColor(Color::srgb(1.0, 0.3, 0.3)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(300.0),
+            left: px(400.0),
+            ..default()
+        },
+    ));
+}
+
+// R tuşu ile restart
+fn restart_on_key(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut atlases: ResMut<Atlases>,
+    mut spawn_timer: ResMut<EnemySpawnTimer>,
+    mut move_timer: ResMut<EnemyMoveTimer>,
+    mut shoot_timer: ResMut<ShootTimer>,
+    mut reduce_timer: ResMut<PlayerHealthReduceTimer>,
+) {
+
+
+    if keyboard.just_pressed(KeyCode::KeyR) {
+        // Resource'ları resetle
+        *atlases = Atlases::default();
+        *spawn_timer = EnemySpawnTimer::default();
+        *move_timer = EnemyMoveTimer::default();
+        *shoot_timer = ShootTimer::default();
+        *reduce_timer = PlayerHealthReduceTimer::default();
+        
+        // State'i değiştir - OnExit(Playing) tetiklenmeyecek çünkü Playing'den çıkmıyoruz
+        // GameOver'dan Loading'e geçiyoruz
+        next_state.set(GameState::Loading);
+    }
+}
