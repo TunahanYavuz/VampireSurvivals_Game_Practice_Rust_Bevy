@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use crate::plugins::aabb::AABB;
 use crate::plugins::enemy::*;
-use crate::plugins::player::Player;
+use crate::plugins::player::*;
 use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::timers::*;
 use crate::plugins::weapons::*;
@@ -9,15 +9,29 @@ use crate::plugins::game_state::GameState;
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
 use rand::Rng;
+use crate::plugins::score::{setup_score_ui, update_score_ui, GameScore};
+use crate::plugins::weapon_stats::spawn_weapons_for_player;
+use crate::plugins::weapon_upgrade::*;
+
 mod plugins;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
+        
+        // Resources
+        .init_resource::<GameScore>()
+        .init_resource::<UpgradeChoices>()
+        
+        // Events
+        .add_message::<LevelUpEvent>()
+        .add_message::<UpgradeSelectedEvent>()
+        
+        // Resources
         .init_resource::<TextureAssets>()
         .insert_resource(Atlases::default())
-        .add_systems(Startup, minimal_setup)
+        .add_systems(Startup, (minimal_setup, setup_score_ui))
         .init_resource::<EnemySpawnTimer>()
         .init_resource::<EnemyMoveTimer>()
         .init_resource::<ShootTimer>()
@@ -27,6 +41,7 @@ fn main() {
             (
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
                 (
+                    update_score_ui,
                     follow,
                     move_player_addicted_weapons,
                     fire_laser_weapons,
@@ -34,12 +49,16 @@ fn main() {
                     move_player,
                     spawn_enemies,
                     reduce_player_health,
-                    fire_flame_weapons,
                     move_projectiles,
+                    
+                    // Yeni sistemler
+                    gain_xp_from_kills,
+
                 ).run_if(in_state(GameState::Playing)),
             ),
         )
-        .add_systems(OnExit(GameState::Playing), cleanup_game)
+        .add_systems(Update, (show_upgrade_choices_on_level_up,
+                     handle_upgrade_input, apply_weapon_upgrade).run_if(in_state(GameState::UpgradeSelection)))
         .add_systems(OnEnter(GameState::Loading), cleanup_game)
         .add_systems(OnEnter(GameState::GameOver), show_game_over_screen)
         .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
@@ -61,7 +80,7 @@ fn minimal_setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut m
     // Sadece kamera ve arka plan - bunlar hiç silinmeyecek
     commands.spawn((Camera2d, Camera { ..default() }));
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(50000.0, 50000.0))),
+        Mesh2d(meshes.add(Rectangle::new(50500.0, 50000.0))),
         MeshMaterial2d(materials.add(Color::linear_rgb(0.01, 0.01, 0.01))),
         Transform::from_translation(Vec3::new(0.0, 0.0, -200.0)),
     ));
@@ -75,6 +94,8 @@ fn prepare_atlases_and_spawn(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut atlases: ResMut<Atlases>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     if atlases.ready {
         return;
@@ -127,7 +148,7 @@ fn prepare_atlases_and_spawn(
             height: 100.,
         },
     )).id();
-    spawn_weapons_for_player(&mut commands, player_entity, Vec3::ZERO);
+    spawn_weapons_for_player(&mut commands, player_entity, Vec3::ZERO, &mut meshes, &mut materials);
     next_state.set(GameState::Playing);
 }
 
@@ -252,11 +273,12 @@ fn reduce_player_health(
 fn cleanup_game(
     mut commands: Commands,
     game_entities: Query<Entity, With<GameEntity>>,
+    mut score: ResMut<GameScore>,
 ) {
     for entity in game_entities.iter() {
-        // Bevy 0.15+ ile despawn_recursive yerine despawn_descendants + despawn
         commands.entity(entity).try_despawn();
     }
+    score.score = 0;
 }
 
 // GameOver ekranını göster

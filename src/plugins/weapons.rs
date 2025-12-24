@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::enemy::Enemy;
 use crate::plugins::player::Player;
+use crate::plugins::score::GameScore;
+use crate::plugins::weapon_stats::WeaponStats;
 
 // GameEntity marker
 #[derive(Component)]
@@ -51,55 +53,7 @@ pub struct PlayerAddictedWeapon{
 
 
 // Player için silahları bir kere spawn et
-pub fn spawn_weapons_for_player(
-    commands: &mut Commands,
-    player_entity: Entity,
-    _player_pos: Vec3,
-) {
-    println!("Spawning weapons for player!");
-    
-    // Lazer silahı
-    commands.spawn((
-        GameEntity,
-        Weapon {
-            owner: player_entity,
-            damage: 50.0,
-            fire_timer: Timer::from_seconds(0.3, TimerMode::Repeating),
-        },
-        LaserWeapon {
-            speed: 500.0,
-            color: Color::srgb(0.0, 1.0, 1.0),
-        },
-    ));
 
-    // Roket silahı
-    commands.spawn((
-        GameEntity,
-        Weapon {
-            owner: player_entity,
-            damage: 50.0,
-            fire_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
-        },
-        RocketWeapon {
-            speed: 200.0,
-            explosion_radius: 100.0,
-        },
-    ));
-
-    // Alev silahı
-    commands.spawn((
-        GameEntity,
-        Weapon {
-            owner: player_entity,
-            damage: 5.0,
-            fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
-        },
-        FlameWeapon {
-            range: 150.0,
-        },
-    ));
-
-}
 
 // Lazer silahlarını ateşle
 pub fn fire_laser_weapons(
@@ -225,19 +179,24 @@ pub fn move_player_addicted_weapons(
     mut commands: Commands,
     time: Res<Time>,
     player_query: Query<&Transform, (With<Player>, Without<Enemy>, Without<Projectile>, Without<PlayerAddictedWeapon>)>,
-    mut player_addicted_weapon: Query<(&mut Transform, &PlayerAddictedWeapon, &mut Weapon), With<PlayerAddictedWeapon>>,
-    mut enemies: Query<(Entity, &mut Enemy, &mut AABB), Without<PlayerAddictedWeapon>>,
+    mut player_addicted_weapon: Query<(&mut Transform, &WeaponStats, &mut Weapon), With<PlayerAddictedWeapon>>,
+    mut enemies: Query<(&Transform, Entity, &mut Enemy), Without<PlayerAddictedWeapon>>,
+    mut score: ResMut<GameScore>,
 ){
     let Ok(player_transform) = player_query.single() else { return; };
-    for (mut addicted_transform, addicted_weapon, mut weapon) in player_addicted_weapon.iter_mut() {
+    for (mut addicted_transform, weapon_stats, mut weapon) in player_addicted_weapon.iter_mut() {
         addicted_transform.translation = player_transform.translation;
         weapon.fire_timer.tick(time.delta());
         if !weapon.fire_timer.just_finished() { continue; }
-        for (enemy_entity, mut enemy, enemy_aabb) in enemies.iter_mut() {
+        let weapon_radius = weapon_stats.base_range * (addicted_transform.scale.x.abs());
+        for (enemy_transform, enemy_entity, mut enemy) in enemies.iter_mut() {
+            let dist = enemy_transform.translation.distance(player_transform.translation);
 
-            if enemy_aabb.contains_point(addicted_transform.translation) {
-                enemy.health = enemy.health.saturating_sub(addicted_weapon.damage as i32);
+            if dist <= weapon_radius {
+                enemy.health = enemy.health.saturating_sub(weapon.damage as i32);
+                println!("{}", weapon.damage);
                 if enemy.health <=0 {
+                    score.score += 1;
                     commands.entity(enemy_entity).try_despawn();
                 }
             }
@@ -251,6 +210,7 @@ pub fn move_projectiles(
     time: Res<Time>,
     mut projectiles: Query<(Entity, &mut Transform, &mut Projectile), With<Projectile>>,
     mut enemies: Query<(Entity, &mut Transform, &mut Enemy, &mut AABB), Without<Projectile>>,
+    mut score: ResMut<GameScore>,
 ) {
     for (proj_entity, mut proj_transform, mut projectile) in projectiles.iter_mut() {
         // Hareketi uygula
@@ -276,6 +236,7 @@ pub fn move_projectiles(
                 // Düşman öldüyse
                 if enemy.health <= 0 {
                     commands.entity(enemy_entity).try_despawn();
+                    score.score += 1;
                 }
                 break;
             }

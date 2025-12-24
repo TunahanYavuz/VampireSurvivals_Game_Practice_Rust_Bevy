@@ -1,8 +1,13 @@
 use std::time::Duration;
-use bevy::prelude::{Assets, ButtonInput, Circle, Color, ColorMaterial, Command, Commands, Component, Entity, KeyCode, Mesh, Mesh2d, MeshMaterial2d, Query, Sprite, Time, Transform, Vec3, With, Without};
+use bevy::prelude::{Assets, ButtonInput, Circle, Color, ColorMaterial, Command, Commands, Component, Entity, KeyCode, Mesh, Mesh2d, MeshMaterial2d, NextState, Query, Sprite, Time, Transform, Vec3, With, Without};
+use bevy_ecs::prelude::MessageWriter;
+use bevy_ecs::system::{Local, Res, ResMut};
 use crate::plugins::aabb::AABB;
 use crate::plugins::enemy::Enemy;
+use crate::plugins::game_state::GameState;
+use crate::plugins::score::GameScore;
 use crate::plugins::timers::{EnemyMoveTimer, ShootTimer};
+use crate::plugins::weapon_upgrade::LevelUpEvent;
 
 #[derive(Component)]
 pub struct Player {
@@ -133,7 +138,36 @@ impl Player {
         ));
         self.level_up(shoot_timer);
     }
+    pub fn gain_xp(&mut self, amount: f32, message_writer: &mut MessageWriter<LevelUpEvent>, next_state: &mut NextState<GameState>){
+        self.xp += amount;
+
+        while self.xp >=self.xp_to_next_level{
+            self.xp -= self.xp_to_next_level;
+            self.xp_to_next_level *= 1.2;
+            self.level += 1;
+
+            message_writer.write(LevelUpEvent{level: self.level});
+            println!("🎉 LEVEL UP! Level: {}", self.level);
+            next_state.set(GameState::UpgradeSelection);
+
+        }
+    }
+
+
 }
 
-
+pub fn gain_xp_from_kills(
+    mut player_query: Query<&mut Player>,
+    score: Res<GameScore>,
+    mut last_score: Local<u32>,
+    mut level_up_events: MessageWriter<LevelUpEvent>,
+    mut next_state: ResMut<NextState<GameState>>,
+){
+    let Ok(mut player) = player_query.single_mut() else { return; };
+    let kills_gained = score.score.saturating_sub(*last_score);
+    if kills_gained > 0 {
+        player.gain_xp(kills_gained as f32 * 10.0, &mut level_up_events, &mut next_state);
+        *last_score = score.score;
+    }
+}
 

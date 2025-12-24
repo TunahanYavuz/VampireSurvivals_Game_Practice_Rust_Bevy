@@ -5,3 +5,6 @@ pub mod timers;
 pub mod aabb;
 pub mod weapons;
 pub mod texture_handling;
+pub mod score;
+pub mod weapon_upgrade;
+pub mod weapon_stats;

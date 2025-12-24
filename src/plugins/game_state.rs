@@ -6,4 +6,5 @@ pub enum GameState {
     Loading,
     Playing,
     GameOver,
+    UpgradeSelection,
 }
