@@ -28,6 +28,7 @@ fn main() {
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
                 (
                     follow,
+                    move_player_addicted_weapons,
                     fire_laser_weapons,
                     fire_rocket_weapons,
                     move_player,

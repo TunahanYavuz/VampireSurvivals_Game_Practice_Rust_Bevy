@@ -70,7 +70,4 @@ pub fn follow(
             }
         }
     }
-
-
-
 }

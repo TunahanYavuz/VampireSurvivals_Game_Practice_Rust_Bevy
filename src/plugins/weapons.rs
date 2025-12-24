@@ -44,6 +44,12 @@ pub struct Projectile {
     pub lifetime: Timer,
 }
 
+#[derive(Component)]
+pub struct PlayerAddictedWeapon{
+    pub damage: f32,
+}
+
+
 // Player için silahları bir kere spawn et
 pub fn spawn_weapons_for_player(
     commands: &mut Commands,
@@ -188,29 +194,50 @@ pub fn fire_rocket_weapons(
 // Alev silahı - farklı mantık, mermi spawn etmez
 pub fn fire_flame_weapons(
     mut commands: Commands,
-    time: Res<Time>,
-    mut weapons: Query<(&mut Weapon, &FlameWeapon), With<FlameWeapon>>,
+    weapons: Query<(&Weapon, &FlameWeapon), With<FlameWeapon>>,
     players: Query<&Transform, With<Player>>,
-    mut enemies: Query<(Entity, &Transform, &mut Enemy, &AABB), With<Enemy>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    for (mut weapon, flame) in weapons.iter_mut() {
-        weapon.fire_timer.tick(time.delta());
-        
-        if !weapon.fire_timer.just_finished() {
-            continue;
-        }
-
+    for (weapon, flame) in weapons.iter() {
         let Ok(player_transform) = players.get(weapon.owner) else {
             continue;
         };
+        commands.spawn((
+            GameEntity,
+            Mesh2d(meshes.add(Circle::new(flame.range / 2.0))),
+            MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0),)),
+            PlayerAddictedWeapon{
+                damage: weapon.damage,
+            },
+            Weapon{
+                fire_timer: Timer::from_seconds(0.1, TimerMode::Once),
+                damage: weapon.damage,
+                owner: weapon.owner,
+            },
+            Transform::from_translation(player_transform.translation),
+        ));
 
-        // Menzildeki tüm düşmanlara hasar ver
-        for (enemy_entity, enemy_transform, mut enemy, _enemy_aabb) in enemies.iter_mut() {
-            let distance = player_transform.translation.distance(enemy_transform.translation);
-            if distance < flame.range {
-                enemy.health = enemy.health.saturating_sub(weapon.damage as i32);
-                
-                if enemy.health <= 0 {
+    }
+}
+
+pub fn move_player_addicted_weapons(
+    mut commands: Commands,
+    time: Res<Time>,
+    player_query: Query<&Transform, (With<Player>, Without<Enemy>, Without<Projectile>, Without<PlayerAddictedWeapon>)>,
+    mut player_addicted_weapon: Query<(&mut Transform, &PlayerAddictedWeapon, &mut Weapon), With<PlayerAddictedWeapon>>,
+    mut enemies: Query<(Entity, &mut Enemy, &mut AABB), Without<PlayerAddictedWeapon>>,
+){
+    let Ok(player_transform) = player_query.single() else { return; };
+    for (mut addicted_transform, addicted_weapon, mut weapon) in player_addicted_weapon.iter_mut() {
+        addicted_transform.translation = player_transform.translation;
+        weapon.fire_timer.tick(time.delta());
+        if !weapon.fire_timer.just_finished() { continue; }
+        for (enemy_entity, mut enemy, enemy_aabb) in enemies.iter_mut() {
+
+            if enemy_aabb.contains_point(addicted_transform.translation) {
+                enemy.health = enemy.health.saturating_sub(addicted_weapon.damage as i32);
+                if enemy.health <=0 {
                     commands.entity(enemy_entity).try_despawn();
                 }
             }
@@ -243,7 +270,6 @@ pub fn move_projectiles(
                 enemy_aabb.change_point(enemy_transform.translation);
                 // Hasar ver
                 enemy.health = enemy.health.saturating_sub(projectile.damage as i32);
-                println!("Hasar: {}", projectile.damage);
                 // Mermiyi yok et
                 commands.entity(proj_entity).despawn();
                 
