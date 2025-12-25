@@ -58,6 +58,8 @@ fn main() {
                      handle_upgrade_input, apply_weapon_upgrade).run_if(in_state(GameState::UpgradeSelection)))
         .add_systems(OnEnter(GameState::Loading), cleanup_game)
         .add_systems(OnEnter(GameState::GameOver), (cleanup_game, show_game_over_screen).chain())
+        .add_systems(OnExit(GameState::UpgradeSelection), cleanup_upgrade_ui_on_choice)
+        .add_systems(OnEnter(GameState::UpgradeSelection), create_table_ui)
         .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
         .run();
 }

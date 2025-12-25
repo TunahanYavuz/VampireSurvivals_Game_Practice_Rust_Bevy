@@ -145,35 +145,7 @@ pub fn fire_rocket_weapons(
     }
 }
 
-// Alev silahı - farklı mantık, mermi spawn etmez
-pub fn fire_flame_weapons(
-    mut commands: Commands,
-    weapons: Query<(&Weapon, &FlameWeapon), With<FlameWeapon>>,
-    players: Query<&Transform, With<Player>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    for (weapon, flame) in weapons.iter() {
-        let Ok(player_transform) = players.get(weapon.owner) else {
-            continue;
-        };
-        commands.spawn((
-            GameEntity,
-            Mesh2d(meshes.add(Circle::new(flame.range / 2.0))),
-            MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0),)),
-            PlayerAddictedWeapon{
-                damage: weapon.damage,
-            },
-            Weapon{
-                fire_timer: Timer::from_seconds(0.1, TimerMode::Once),
-                damage: weapon.damage,
-                owner: weapon.owner,
-            },
-            Transform::from_translation(player_transform.translation),
-        ));
 
-    }
-}
 
 pub fn move_player_addicted_weapons(
     mut commands: Commands,

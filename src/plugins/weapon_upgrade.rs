@@ -71,12 +71,18 @@ impl UpgradeChoices {
     }
 }
 
+#[derive(Component)]
+pub struct WeaponTable;
 
 
+#[derive(Component)]
+pub struct UpgradeButton(pub WeaponType);
 pub fn show_upgrade_choices_on_level_up(
     mut level_up_events: MessageReader<LevelUpEvent>,
     mut upgrade_choices: ResMut<UpgradeChoices>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut commands: Commands,
+    table: Single<Entity, With<WeaponTable>>,
 ){
     for event in level_up_events.read() {
         println!("Level {}! Seçim yapın:", event.level);
@@ -86,12 +92,37 @@ pub fn show_upgrade_choices_on_level_up(
         // Oyunu duraklat (yeni state ekleyebilirsiniz)
         next_state.set(GameState::UpgradeSelection);
         // UI göster (şimdilik console)
-        for (i, option) in options.iter().enumerate() {
-            println!("  [{}] {} - {}", i + 1, option.name, option.description);
-        }
+        for (i ,option) in options.iter().enumerate() {
+            commands.entity(*table).with_children(|parent| {
+                parent.spawn((Button, UpgradeButton(option.weapon_type))).with_children(|button| {
+                    button.spawn((Text::new(format!("Seçenek {}: {}\n{}", i, option.name, option.description)),
+                    Node {
+                        margin: UiRect::all(Val::Px(5.0)),
+                        ..default()
+                    })
+                    );
+                });
 
-        println!("1, 2 veya 3 tuşuna basın...");
+            });
+        }
     }
+}
+
+pub fn create_table_ui(
+    mut commands: Commands,
+){
+    commands.spawn((
+        WeaponTable,
+        Node{
+            width: Val::Percent(40.0),
+            height: Val::Percent(50.0),
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::FlexStart,
+            flex_wrap: FlexWrap::Wrap,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.5, 0.0, 0.7))
+    ));
 }
 
 pub fn apply_weapon_upgrade(
@@ -148,27 +179,25 @@ pub fn apply_weapon_upgrade(
 }
 
 pub fn handle_upgrade_input(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    upgrade_choices: Res<UpgradeChoices>,
+    interaction_q: Query<(&Interaction, &UpgradeButton), (Changed<Interaction>, With<Button>)>,
     mut upgrade_events: MessageWriter<UpgradeSelectedEvent>,
 ){
-    if !upgrade_choices.waiting_for_choice {
-        return;
-    }
-
-    let selected_weapon = if keyboard.just_pressed(KeyCode::Digit1) {
-        Some(0)
-    }else if keyboard.just_pressed(KeyCode::Digit2) {
-        Some(1)
-    }else if keyboard.just_pressed(KeyCode::Digit3) {
-        Some(2)
-    }else { None };
-
-    if let Some(index) = selected_weapon {
-        if let Some(option) = upgrade_choices.options.get(index) {
-            upgrade_events.write(UpgradeSelectedEvent{
-                weapon_type: option.weapon_type
+    for (interaction, upgrade_button) in interaction_q.iter() {
+        if *interaction == Interaction::Pressed {
+            upgrade_events.write(
+                UpgradeSelectedEvent{
+                    weapon_type: upgrade_button.0,
             });
+
         }
+    }
+}
+
+pub fn cleanup_upgrade_ui_on_choice(
+    mut table: Query<Entity, With<WeaponTable>>,
+    mut commands: Commands,
+){
+    for table in table.iter_mut() {
+        commands.entity(table).try_despawn();
     }
 }
