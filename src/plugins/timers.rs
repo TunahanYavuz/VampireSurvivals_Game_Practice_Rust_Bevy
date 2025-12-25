@@ -7,26 +7,16 @@ pub struct EnemySpawnTimer {
 impl Default for EnemySpawnTimer {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(0.2, TimerMode::Repeating),
+            timer: Timer::from_seconds(0.01, TimerMode::Repeating),
         }
     }
 }
+
 #[derive(Resource)]
-pub struct ShootTimer {
+pub struct MoveTimer {
     pub timer: Timer,
 }
-impl Default for ShootTimer {
-    fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(0.2, TimerMode::Repeating),
-        }
-    }
-}
-#[derive(Resource)]
-pub struct EnemyMoveTimer {
-    pub timer: Timer,
-}
-impl Default for EnemyMoveTimer {
+impl Default for MoveTimer {
     fn default() -> Self {
         Self {
             timer: Timer::from_seconds(0.2, TimerMode::Repeating),

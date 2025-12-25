@@ -1,12 +1,11 @@
-use std::time::Duration;
-use bevy::prelude::{Assets, ButtonInput, Circle, Color, ColorMaterial, Command, Commands, Component, Entity, KeyCode, Mesh, Mesh2d, MeshMaterial2d, NextState, Query, Sprite, Time, Transform, Vec3, With, Without};
+use bevy::prelude::{ ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
 use bevy_ecs::prelude::MessageWriter;
 use bevy_ecs::system::{Local, Res, ResMut};
 use crate::plugins::aabb::AABB;
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
 use crate::plugins::score::GameScore;
-use crate::plugins::timers::{EnemyMoveTimer, ShootTimer};
+use crate::plugins::timers::{MoveTimer};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
 
 #[derive(Component)]
@@ -34,26 +33,42 @@ impl Player {
         camera_transform: &mut Transform,
         keyboard_input: &ButtonInput<KeyCode>,
         time: &Time,
-        enemy_move_timer: &EnemyMoveTimer,
+        move_timer: &MoveTimer,
     ) {
         let mut pos = transform.translation;
-        if let Some(ref mut atlas) = sprite.texture_atlas {
-            if enemy_move_timer.timer.just_finished() {
-                atlas.index = (atlas.index + 1) % 35;
-            }
-        }
+
+
+        let mut dir= 5;
 
         if keyboard_input.pressed(KeyCode::KeyA) {
             pos.x -= self.movement * time.delta_secs();
+            dir = -1;
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
             pos.x += self.movement * time.delta_secs();
+            dir = 1;
         }
         if keyboard_input.pressed(KeyCode::KeyW) {
             pos.y += self.movement * time.delta_secs();
+            dir = 2;
         }
         if keyboard_input.pressed(KeyCode::KeyS) {
             pos.y -= self.movement * time.delta_secs();
+            dir = 0
+        }
+        if let Some(ref mut atlas) = sprite.texture_atlas {
+            if move_timer.timer.just_finished() {
+                if dir == -1 {
+                    atlas.index = 9 + (atlas.index + 1) % 9;
+                } else if dir == 1 {
+                    atlas.index = 27 + (atlas.index + 1) % 9;
+                } else if dir == 2 {
+                    atlas.index = 0 + (atlas.index + 1) % 9;
+                } else if dir == 0 {
+                    atlas.index = 18 + (atlas.index + 1) % 9;
+                }
+
+            }
         }
         transform.translation = pos;
         aabb.change_point(pos);
@@ -64,13 +79,13 @@ impl Player {
         &mut self,
         entity: Entity,
         commands: &mut Commands,
-        enemy_query: &Query<(&AABB, &Enemy), (With<Enemy>, Without<Player>)>,
+        enemy_query: Query<(&AABB, &Enemy), (With<Enemy>, Without<Player>)>,
         player_aabb: &AABB,
     ) {
-        for (enemy_aabb, _) in enemy_query.iter() {
+        for (enemy_aabb, enemy) in enemy_query.iter() {
             if self.health > 0 && enemy_aabb.self_aabb_intersects(player_aabb) {
                 if self.health > 0 {
-                    self.health -= 1;
+                    self.health -= enemy.damage as u32;
                 }
                 println!("{:?}", self.health);
             }
@@ -79,65 +94,7 @@ impl Player {
             commands.entity(entity).despawn();
         }
     }
-    pub fn level_up(&mut self, shoot_timer: &mut ShootTimer) {
-        if self.xp >= self.xp_to_next_level {
-            shoot_timer.timer.set_duration(Duration::from_secs_f32(0.1));
-            self.xp -= self.xp_to_next_level;
-            self.xp_to_next_level *= 1.1;
-            self.level += 1;
-        }
-    }
 
-    pub fn shoot(
-        &mut self,
-        commands: &mut Commands,
-        player_transform: &Transform,
-        enemy_query: &Query<(&Transform, &Enemy), (With<Enemy>, Without<Player>)>,
-        mesh2d: &mut Assets<Mesh>,
-        mesh_materials: &mut Assets<ColorMaterial>,
-        shoot_timer: &mut ShootTimer,
-        time: &Time,
-    ) {
-        shoot_timer.timer.tick(time.delta());
-        if !shoot_timer.timer.just_finished() {
-            return;
-        }
-
-        if enemy_query.is_empty() {
-            return;
-        }
-        let mut closest_enemy = f32::INFINITY;
-        let mut target_enemy: Option<Vec3> = None;
-        for (enemy, _) in enemy_query.iter() {
-            let distance = enemy.translation.distance(player_transform.translation);
-            if closest_enemy > distance {
-                closest_enemy = distance;
-                target_enemy = Some(enemy.translation);
-            }
-        }
-        let target = match target_enemy {
-            None => {
-                return;
-            }
-            Some(t) => t,
-        };
-
-        let diff = target - player_transform.translation;
-        if diff.length_squared() < 1e-6 {
-            return;
-        }
-        let dir = diff.normalize();
-        commands.spawn((
-            Transform::from_xyz(player_transform.translation.x, player_transform.translation.y, 5.0),
-            Mesh2d(mesh2d.add(Circle {
-                radius: 10.0,
-                ..Default::default()
-            })),
-            MeshMaterial2d(mesh_materials.add(Color::WHITE)),
-            
-        ));
-        self.level_up(shoot_timer);
-    }
     pub fn gain_xp(&mut self, amount: f32, message_writer: &mut MessageWriter<LevelUpEvent>, next_state: &mut NextState<GameState>){
         self.xp += amount;
 

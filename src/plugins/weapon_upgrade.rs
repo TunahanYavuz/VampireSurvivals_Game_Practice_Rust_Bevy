@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::seq::{IndexedRandom, SliceRandom}; 
+use rand::seq::{IndexedRandom,};
 use crate::plugins::game_state::GameState;
 use crate::plugins::weapon_stats::WeaponStats;
 use crate::plugins::weapons::{LaserWeapon, RocketWeapon, Weapon};
@@ -35,6 +35,11 @@ pub struct UpgradeChoices {
     pub waiting_for_choice: bool,
 }
 
+#[derive(Component)]
+pub struct WeaponLevel {
+    pub level: i32,
+    pub weapon_type: WeaponType,
+}
 impl UpgradeChoices {
     pub fn generate_random_options(&mut self) -> Vec<UpgradeOption>{
 
@@ -66,11 +71,7 @@ impl UpgradeChoices {
     }
 }
 
-#[derive(Component)]
-pub struct WeaponLevel {
-    pub level: i32,
-    pub weapon_type: WeaponType,
-}
+
 
 pub fn show_upgrade_choices_on_level_up(
     mut level_up_events: MessageReader<LevelUpEvent>,

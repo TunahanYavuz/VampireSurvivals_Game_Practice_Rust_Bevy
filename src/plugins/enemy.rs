@@ -1,10 +1,10 @@
-use bevy::prelude::{Children, Component, Entity, Handle, Query, Sprite, TextureAtlasLayout, Time, Transform, Vec3, With};
+use bevy::prelude::{Children, Component, Query, Sprite, Time, Transform, Vec3, With};
+use bevy::time::Timer;
 use bevy_ecs::change_detection::{Res, ResMut};
 use bevy_ecs::prelude::Without;
 use crate::plugins::aabb::AABB;
 use crate::plugins::player::Player;
-use crate::plugins::texture_handling::TextureAssets;
-use crate::plugins::timers::EnemyMoveTimer;
+use crate::plugins::timers::MoveTimer;
 
 #[derive(Component)]
 pub struct Enemy {
@@ -22,7 +22,7 @@ pub fn follow(
     player_query: Query<&Transform, With<Player>>,
     mut enemy_query: Query<(&mut Transform, &Enemy, &Children, &mut AABB), (With<Enemy>, Without<Player>)>,
     time: Res<Time>,
-    mut enemy_move_timer: ResMut<EnemyMoveTimer>,
+    mut enemy_move_timer: ResMut<MoveTimer>,
     mut enemy_sprit_query: Query<(&mut Sprite, &mut EnemySprit), With<EnemySprit>>,
 
 ) {

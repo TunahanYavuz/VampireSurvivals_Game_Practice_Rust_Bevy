@@ -1,4 +1,3 @@
-use std::ops::{Deref, DerefMut};
 use crate::plugins::aabb::AABB;
 use crate::plugins::enemy::*;
 use crate::plugins::player::*;
@@ -33,8 +32,7 @@ fn main() {
         .insert_resource(Atlases::default())
         .add_systems(Startup, (minimal_setup, setup_score_ui))
         .init_resource::<EnemySpawnTimer>()
-        .init_resource::<EnemyMoveTimer>()
-        .init_resource::<ShootTimer>()
+        .init_resource::<MoveTimer>()
         .init_resource::<PlayerHealthReduceTimer>()
         .add_systems(
             Update,
@@ -51,7 +49,6 @@ fn main() {
                     reduce_player_health,
                     move_projectiles,
                     
-                    // Yeni sistemler
                     gain_xp_from_kills,
 
                 ).run_if(in_state(GameState::Playing)),
@@ -60,14 +57,12 @@ fn main() {
         .add_systems(Update, (show_upgrade_choices_on_level_up,
                      handle_upgrade_input, apply_weapon_upgrade).run_if(in_state(GameState::UpgradeSelection)))
         .add_systems(OnEnter(GameState::Loading), cleanup_game)
-        .add_systems(OnEnter(GameState::GameOver), show_game_over_screen)
+        .add_systems(OnEnter(GameState::GameOver), (cleanup_game, show_game_over_screen).chain())
         .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
         .run();
 }
 
 // Marker component - oyun sırasında oluşturulan tüm entity'lere eklenecek
-#[derive(Component)]
-struct GameEntity;
 
 #[derive(Resource, Default)]
 struct Atlases {
@@ -186,7 +181,7 @@ fn spawn_enemies(
         .spawn((
             GameEntity,  // ← Marker eklendi
             Transform::from_xyz(x, y, 0.0),
-            Enemy { health: 100, damage: 100, speed: rand::rng().random_range(100.0..300.0), },
+            Enemy { health: 100, damage: 1, speed: rand::rng().random_range(100.0..200.0) },
             InheritedVisibility::default(),
             AABB { max_x: x + 25., max_y: y + 25., min_x: x - 25., min_y: y - 25., width: 50., height: 50. },
         ))
@@ -210,7 +205,7 @@ fn move_player(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     atlases: Res<Atlases>,
-    enemy_move_timer: Res<EnemyMoveTimer>,
+    enemy_move_timer: Res<MoveTimer>,
 ) {
     if !atlases.ready {
         return;
@@ -262,7 +257,7 @@ fn reduce_player_health(
         return;
     };
 
-    player.take_damage(entity, &mut commands, &enemy_query, &aabb);
+    player.take_damage(entity, &mut commands, enemy_query, &aabb);
 
     if player.health == 0 {
         next_state.set(GameState::GameOver);
@@ -306,8 +301,7 @@ fn restart_on_key(
     mut next_state: ResMut<NextState<GameState>>,
     mut atlases: ResMut<Atlases>,
     mut spawn_timer: ResMut<EnemySpawnTimer>,
-    mut move_timer: ResMut<EnemyMoveTimer>,
-    mut shoot_timer: ResMut<ShootTimer>,
+    mut move_timer: ResMut<MoveTimer>,
     mut reduce_timer: ResMut<PlayerHealthReduceTimer>,
 ) {
 
@@ -316,8 +310,7 @@ fn restart_on_key(
         // Resource'ları resetle
         *atlases = Atlases::default();
         *spawn_timer = EnemySpawnTimer::default();
-        *move_timer = EnemyMoveTimer::default();
-        *shoot_timer = ShootTimer::default();
+        *move_timer = MoveTimer::default();
         *reduce_timer = PlayerHealthReduceTimer::default();
         
         // State'i değiştir - OnExit(Playing) tetiklenmeyecek çünkü Playing'den çıkmıyoruz
