@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
-use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, RocketWeapon, Weapon}; // GameEntity'yi buradan import edin
+use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, ProjectileKind, RocketWeapon, Weapon}; // GameEntity'yi buradan import edin
 
 #[derive(Component)]
 pub struct WeaponStats{
@@ -45,19 +45,17 @@ pub fn spawn_weapons_for_player(
             owner: player_entity,
             damage: 50.0,
             fire_timer: Timer::from_seconds(0.3, TimerMode::Repeating),
+            speed: 200.0
         },
-        LaserWeapon {
-            speed: 500.0,
-            color: Color::srgb(0.0, 1.0, 1.0),
-        },
+        LaserWeapon { color: Color::srgb(0.0, 0.5, 0.0) },
         WeaponLevel {
             level: 1,
-            weapon_type: WeaponType::Laser,
+            weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Laser{lazer_weapon: LaserWeapon{color: Color::srgb(0.0, 0.5, 0.0)}} },
         },
         WeaponStats {
             base_damage: 50.0,
             base_fire_rate: 0.3,
-            base_speed: 500.0,
+            base_speed: 200.0,
             base_range: 0.0,
         },
     ));
@@ -69,14 +67,12 @@ pub fn spawn_weapons_for_player(
             owner: player_entity,
             damage: 50.0,
             fire_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
-        },
-        RocketWeapon {
             speed: 200.0,
-            explosion_radius: 100.0,
         },
+        RocketWeapon { explosion_radius: 50.0 },
         WeaponLevel {
             level: 1,
-            weapon_type: WeaponType::Rocket,
+            weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Rocket { rocket_weapon: RocketWeapon {explosion_radius: 50.0}} },
         },
         WeaponStats {
             base_damage: 50.0,
@@ -87,28 +83,33 @@ pub fn spawn_weapons_for_player(
     ));
 
     // Alev silahı
+    // Görseli unit circle olarak oluşturup Transform.scale ile gerçek yarıçapı uyguluyoruz
+    let base_range = 75.0;
     commands.spawn((
         GameEntity,
-        Mesh2d(meshes.add(Circle::new(75.0))),
-        MeshMaterial2d(materials.add(Color::srgba(1.0, 0.5, 0.0, 0.3))),
-        PlayerAddictedWeapon {
-            damage: 5.0,
-        },
+        Mesh2d(meshes.add(Circle::new(1.0))), // unit circle
+        MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(1.0, 0.5, 0.0, 0.3)))),
+        PlayerAddictedWeapon{radius: base_range},
         Weapon {
             fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
             damage: 5.0,
             owner: player_entity,
+            speed: 0.0,
         },
         WeaponLevel {
             level: 1,
-            weapon_type: WeaponType::Flame,
+            weapon_type: WeaponType::Addicted,
         },
         WeaponStats {
             base_damage: 5.0,
             base_fire_rate: 0.1,
             base_speed: 0.0,
-            base_range: 75.0,
+            base_range: base_range,
         },
-        Transform::from_translation(_player_pos),
+        Transform {
+            translation: _player_pos,
+            scale: Vec3::splat(base_range), // başlangıç görsel ölçeği
+            ..Default::default()
+        },
     ));
 }

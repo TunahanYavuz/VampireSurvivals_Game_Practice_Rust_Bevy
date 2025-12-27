@@ -1,14 +1,16 @@
 use bevy::prelude::*;
-use rand::seq::{IndexedRandom,};
+use rand::seq::SliceRandom;
+use rand::{rng};
+use rand::prelude::IndexedRandom;
 use crate::plugins::game_state::GameState;
 use crate::plugins::weapon_stats::WeaponStats;
-use crate::plugins::weapons::{LaserWeapon, RocketWeapon, Weapon};
+use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, Projectile, ProjectileKind, RocketWeapon, Weapon};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy)]
+#[derive(PartialEq)]
 pub enum WeaponType{
-    Laser,
-    Rocket,
-    Flame,
+    Projectile{weapon: ProjectileKind},
+    Addicted,
 }
 
 #[derive(Component,Clone)]
@@ -45,25 +47,25 @@ impl UpgradeChoices {
 
         let all_options = vec![
             UpgradeOption{
-                weapon_type: WeaponType::Laser,
+                weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Laser{lazer_weapon: LaserWeapon{color: Color::srgba(1.0, 0.0, 0.0, 1.0)}}},
                 name : "Laser silahı Güçlendir".to_string(),
                 description: "Hasar +10, Hız +%5".to_string(),
                 icon: None
             },
             UpgradeOption {
-                weapon_type: WeaponType::Rocket,
+                weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Rocket{rocket_weapon: RocketWeapon{explosion_radius: 30.0}}},
                 name: "Roket Silahı Güçlendir".to_string(),
                 description: "Hasar +15, Patlama +10".to_string(),
                 icon: None,
             },
             UpgradeOption {
-                weapon_type: WeaponType::Flame,
+                weapon_type: WeaponType::Addicted,
                 name: "Alev Silahı Güçlendir".to_string(),
                 description: "Hasar +3, Alan +15%".to_string(),
                 icon: None,
             },
         ];
-        let mut rng = rand::rng();
+        let mut rng = rng();
         let selected: Vec<_> = all_options.choose_multiple(&mut rng, 3).cloned().collect();
         self.options = selected.clone();
         self.waiting_for_choice = true;
@@ -82,27 +84,24 @@ pub fn show_upgrade_choices_on_level_up(
     mut upgrade_choices: ResMut<UpgradeChoices>,
     mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
-    table: Single<Entity, With<WeaponTable>>,
+    table: Query<Entity, With<WeaponTable>>,
 ){
     for event in level_up_events.read() {
         println!("Level {}! Seçim yapın:", event.level);
 
         let options = upgrade_choices.generate_random_options();
 
-        // Oyunu duraklat (yeni state ekleyebilirsiniz)
         next_state.set(GameState::UpgradeSelection);
-        // UI göster (şimdilik console)
-        for (i ,option) in options.iter().enumerate() {
-            commands.entity(*table).with_children(|parent| {
-                parent.spawn((Button, UpgradeButton(option.weapon_type))).with_children(|button| {
-                    button.spawn((Text::new(format!("Seçenek {}: {}\n{}", i, option.name, option.description)),
-                    Node {
-                        margin: UiRect::all(Val::Px(5.0)),
-                        ..default()
-                    })
-                    );
-                });
 
+        let Ok(table_entity) = table.single() else {
+            commands.spawn((WeaponTable, Node::default()));
+            continue;
+        };
+
+        for (i ,option) in options.iter().enumerate() {
+            commands.entity(table_entity).with_children(|parent| {
+                parent.spawn((Button::default(), UpgradeButton(option.weapon_type),
+                Text::new(format!("Seçenek {} {} - {}", i, option.name, option.description))));
             });
         }
     }
@@ -128,17 +127,17 @@ pub fn create_table_ui(
 pub fn apply_weapon_upgrade(
     mut upgrade_events: MessageReader<UpgradeSelectedEvent>,
     mut weapons: Query<(&mut Weapon, &mut WeaponLevel, &WeaponStats,
-    Option<&mut LaserWeapon>, Option<&mut RocketWeapon>, Option<&mut Transform>)>,
+    Option<&mut PlayerAddictedWeapon>, Option<&mut Projectile>)>,
     mut next_state: ResMut<NextState<GameState>>,
     mut upgrade_choices: ResMut<UpgradeChoices>,
 ){
     for event in upgrade_events.read() {
         upgrade_choices.waiting_for_choice = false;
         for (mut weapon, mut level,
-            stats, laser,
-            rocket,
-            transform) in weapons.iter_mut() {
-            if level.weapon_type != event.weapon_type{
+            stats, addicted_weapon,
+            projectile,
+            ) in weapons.iter_mut() {
+            if std::mem::discriminant(&level.weapon_type) != std::mem::discriminant(&event.weapon_type) {
                 continue;
             }
             level.level += 1;
@@ -148,29 +147,30 @@ pub fn apply_weapon_upgrade(
             weapon.fire_timer.set_duration(std::time::Duration::from_secs_f32(new_fire_rate));
 
             match event.weapon_type {
-                WeaponType::Laser => {
-                    if let Some(mut laser) = laser {
-                        laser.speed = stats.calculate_speed(new_level);
-                        println!("✨ Laser Level {}! Damage: {}, Speed: {}",
-                                 new_level, weapon.damage, laser.speed);
+                WeaponType::Projectile { weapon: _ }  => {
+                    if let Some(mut projectile) = projectile {
+                        match &mut projectile.kind {
+                            ProjectileKind::Laser { lazer_weapon: _ } => {
+                                projectile.damage = stats.calculate_damage(new_level);
+                                println!("Laser");
+                            },
+                            ProjectileKind::Rocket { .. } => {
+                                projectile.damage = stats.calculate_damage(new_level);
+                                stats.calculate_range(new_level);
+                                println!("Rocket");
+                            },
+                        }
                     }
-                }
-                WeaponType::Rocket => {
-                    if let Some(mut rocket) = rocket {
-                        rocket.speed = stats.calculate_speed(new_level);
-                        rocket.explosion_radius = 100.0 + ((new_level - 1) as f32 * 10.0);
-                        println!("✨ Rocket Level {}! Damage: {}, Explosion: {}",
-                                 new_level, weapon.damage, rocket.explosion_radius);
+                    println!("Projectile silahı yükseltildi! Yeni seviye: {}", new_level);
+                },
+                WeaponType::Addicted  => {
+                    if let Some(mut addicted_weapon) = addicted_weapon {
+                        weapon.damage = stats.calculate_damage(new_level);
+                        addicted_weapon.radius = stats.calculate_range(new_level);
+
                     }
-                }
-                WeaponType::Flame => {
-                    if let Some(mut trans) = transform {
-                        let scale = stats.calculate_range(new_level) / stats.base_range;
-                        trans.scale = Vec3::splat(scale);
-                        println!("✨ Flame Level {}! Damage: {}, Scale: {:.1}x",
-                                 new_level, weapon.damage, scale);
-                    }
-                }
+                    println!("Bağımlı silah yükseltildi! Yeni seviye: {}", new_level);
+                },
             }
             next_state.set(GameState::Playing);
             break;
@@ -194,10 +194,10 @@ pub fn handle_upgrade_input(
 }
 
 pub fn cleanup_upgrade_ui_on_choice(
-    mut table: Query<Entity, With<WeaponTable>>,
+    table: Query<Entity, With<WeaponTable>>,
     mut commands: Commands,
 ){
-    for table in table.iter_mut() {
-        commands.entity(table).try_despawn();
+    for table_entity in table.iter() {
+        commands.entity(table_entity).try_despawn();
     }
 }
