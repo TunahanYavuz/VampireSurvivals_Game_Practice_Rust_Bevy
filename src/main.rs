@@ -5,6 +5,7 @@ use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::timers::*;
 use crate::plugins::weapons::*;
 use crate::plugins::game_state::GameState;
+use crate::plugins::ground::{setup_ground, update_ground_chunks};
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
 use crate::plugins::score::{setup_score_ui, update_score_ui, GameScore};
@@ -29,7 +30,7 @@ fn main() {
         // Resources
         .init_resource::<TextureAssets>()
         .insert_resource(Atlases::default())
-        .add_systems(Startup, (minimal_setup, setup_score_ui))
+        .add_systems(Startup, (minimal_setup, setup_score_ui, setup_ground))
         .init_resource::<EnemySpawnTimer>()
         .init_resource::<MoveTimer>()
         .init_resource::<PlayerHealthReduceTimer>()
@@ -39,6 +40,7 @@ fn main() {
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
                 (
                     update_score_ui,
+                    update_ground_chunks,
                     follow,
                     move_player_addicted_weapons,
                     fire_laser_weapons,
@@ -75,11 +77,7 @@ struct Atlases {
 fn minimal_setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>) {
     // Sadece kamera ve arka plan - bunlar hiç silinmeyecek
     commands.spawn((Camera2d, Camera { ..default() }));
-    commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(50500.0, 50000.0))),
-        MeshMaterial2d(materials.add(Color::linear_rgb(0.01, 0.01, 0.01))),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -200.0)),
-    ));
+
 }
 
 fn prepare_atlases_and_spawn(

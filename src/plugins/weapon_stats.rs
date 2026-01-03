@@ -65,11 +65,11 @@ pub fn spawn_weapons_for_player(
         GameEntity,
         Weapon {
             owner: player_entity,
-            damage: 50.0,
-            fire_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
+            damage: 100.0,
+            fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
             speed: 200.0,
         },
-        RocketWeapon { explosion_radius: 100.0 },
+        RocketWeapon { explosion_radius: 1000.0 },
         WeaponLevel {
             level: 1,
             weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Rocket { rocket_weapon: RocketWeapon {explosion_radius: 50.0}} },
