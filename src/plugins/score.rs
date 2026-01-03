@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use crate::plugins::player::Player;
+use crate::plugins::weapons::GameEntity;
 
 #[derive(Component)]
 pub struct ScoreText;
@@ -18,14 +20,14 @@ pub fn setup_score_ui(
             right: Val::Px(10.0),
             ..default()
         },
-        ScoreText
+        ScoreText,
         ));
 }
 pub fn update_score_ui(
-    score: Res<GameScore>,
+    player: Single<&Player>,
     mut query: Query<&mut Text, With<ScoreText>>
 ){
     for mut text in query.iter_mut() {
-        text.0 = format!("Score {}", score.score);
+        text.0 = format!("Score: {}\nXP:{}\nXP to next level:{}\nPlayer HP: {}", player.score, player.xp, player.xp_to_next_level, player.health);
     }
 }

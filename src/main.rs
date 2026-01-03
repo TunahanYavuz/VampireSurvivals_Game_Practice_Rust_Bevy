@@ -7,7 +7,6 @@ use crate::plugins::weapons::*;
 use crate::plugins::game_state::GameState;
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
-use rand::Rng;
 use crate::plugins::score::{setup_score_ui, update_score_ui, GameScore};
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use crate::plugins::weapon_upgrade::*;
@@ -22,7 +21,7 @@ fn main() {
         // Resources
         .init_resource::<GameScore>()
         .init_resource::<UpgradeChoices>()
-        
+        .init_resource::<EnemyPowerUpTimer>()
         // Events
         .add_message::<LevelUpEvent>()
         .add_message::<UpgradeSelectedEvent>()
@@ -48,7 +47,7 @@ fn main() {
                     spawn_enemies,
                     reduce_player_health,
                     move_projectiles,
-                    
+                    despawn_explosions,
                     gain_xp_from_kills,
 
                 ).run_if(in_state(GameState::Playing)),
@@ -132,74 +131,23 @@ fn prepare_atlases_and_spawn(
         ),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Player {
-            health: 100,
+            health: 1,
             movement: 200.,
             ..default()
         },
         AABB {
-            max_x: 50.,
-            max_y: 50.,
-            min_x: -50.,
-            min_y: -50.,
-            width: 100.,
-            height: 100.,
+            max_x: 20.,
+            max_y: 20.,
+            min_x: -20.,
+            min_y: -20.,
+            width: 40.,
+            height: 40.,
         },
     )).id();
     spawn_weapons_for_player(&mut commands, player_entity, Vec3::ZERO, &mut meshes, &mut materials);
     next_state.set(GameState::Playing);
 }
 
-
-
-
-fn spawn_enemies(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut spawn_timer: ResMut<EnemySpawnTimer>,
-    player_query: Query<&Transform, With<Player>>,
-    atlases: Res<Atlases>,
-    textures: Res<TextureAssets>,
-) {
-    spawn_timer.timer.tick(time.delta());
-    if !spawn_timer.timer.just_finished() { return; }
-    if !atlases.ready { return; }
-
-    // Query'den güvenli bir şekilde al
-    let Ok(player_transform) = player_query.single() else {
-        return;
-    };
-
-    let nx: f32 = rand::rng().random_range(-300.0 - player_transform.translation.x..-100.0 - player_transform.translation.x);
-    let ny: f32 = rand::rng().random_range(-300.0 - player_transform.translation.y..-100.0 - player_transform.translation.y);
-    let px: f32 = rand::rng().random_range(100.0 + player_transform.translation.x..300.0 + player_transform.translation.x);
-    let py: f32 = rand::rng().random_range(100.0 + player_transform.translation.y..300.0 + player_transform.translation.y);
-    let x = if nx.abs() > px.abs() { nx } else { px };
-    let y = if ny.abs() > py.abs() { ny } else { py };
-
-    let body_atlas = atlases.body.as_ref().unwrap().clone();
-    let shield_atlas = atlases.shield.as_ref().unwrap().clone();
-
-    commands
-        .spawn((
-            GameEntity,  // ← Marker eklendi
-            Transform::from_xyz(x, y, 0.0),
-            Enemy { health: 100, damage: 1, speed: rand::rng().random_range(100.0..200.0) },
-            InheritedVisibility::default(),
-            AABB { max_x: x + 25., max_y: y + 25., min_x: x - 25., min_y: y - 25., width: 50., height: 50. },
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                GameEntity,  // ← Child'lara da marker
-                Sprite::from_atlas_image(textures.body.clone(), TextureAtlas { layout: body_atlas.clone(), index: 15 }),
-                EnemySprit { index: 0 },
-            ));
-            parent.spawn((
-                GameEntity,  // ← Child'lara da marker
-                Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas.clone(), index: 15 }),
-                EnemySprit { index: 0 },
-            ));
-        });
-}
 
 fn move_player(
     mut player_query: Query<(&mut Transform, &Player, &mut AABB, &mut Sprite), With<Player>>,
@@ -305,8 +253,8 @@ fn restart_on_key(
     mut spawn_timer: ResMut<EnemySpawnTimer>,
     mut move_timer: ResMut<MoveTimer>,
     mut reduce_timer: ResMut<PlayerHealthReduceTimer>,
+    mut enemy_power: ResMut<EnemyPowerUpTimer>,
 ) {
-
 
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Resource'ları resetle
@@ -314,7 +262,7 @@ fn restart_on_key(
         *spawn_timer = EnemySpawnTimer::default();
         *move_timer = MoveTimer::default();
         *reduce_timer = PlayerHealthReduceTimer::default();
-        
+        *enemy_power = EnemyPowerUpTimer::default();
         // State'i değiştir - OnExit(Playing) tetiklenmeyecek çünkü Playing'den çıkmıyoruz
         // GameOver'dan Loading'e geçiyoruz
         next_state.set(GameState::Loading);

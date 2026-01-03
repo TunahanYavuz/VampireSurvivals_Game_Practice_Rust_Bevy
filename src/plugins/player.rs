@@ -1,5 +1,5 @@
 use bevy::prelude::{ ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
-use bevy_ecs::prelude::MessageWriter;
+use bevy_ecs::prelude::{MessageWriter, Single};
 use bevy_ecs::system::{Local, Res, ResMut};
 use crate::plugins::aabb::AABB;
 use crate::plugins::enemy::Enemy;
@@ -85,7 +85,7 @@ impl Player {
         for (enemy_aabb, enemy) in enemy_query.iter() {
             if self.health > 0 && enemy_aabb.self_aabb_intersects(player_aabb) {
                 if self.health > 0 {
-                    self.health -= enemy.damage as u32;
+                    self.health = self.health.saturating_sub(enemy.damage as u32);
                 }
                 println!("{:?}", self.health);
             }
@@ -100,7 +100,7 @@ impl Player {
 
         while self.xp >=self.xp_to_next_level{
             self.xp -= self.xp_to_next_level;
-            self.xp_to_next_level *= 1.2;
+            self.xp_to_next_level *= 1.5;
             self.level += 1;
 
             message_writer.write(LevelUpEvent{level: self.level});
@@ -114,17 +114,16 @@ impl Player {
 }
 
 pub fn gain_xp_from_kills(
-    mut player_query: Query<&mut Player>,
-    score: Res<GameScore>,
+    mut player_query: Single<&mut Player>,
     mut last_score: Local<u32>,
     mut level_up_events: MessageWriter<LevelUpEvent>,
     mut next_state: ResMut<NextState<GameState>>,
 ){
-    let Ok(mut player) = player_query.single_mut() else { return; };
-    let kills_gained = score.score.saturating_sub(*last_score);
+    let player = player_query.as_mut();
+    let kills_gained = player.score.saturating_sub(*last_score);
     if kills_gained > 0 {
-        player.gain_xp(kills_gained as f32 * 10.0, &mut level_up_events, &mut next_state);
-        *last_score = score.score;
+        player.gain_xp(kills_gained as f32 * 1.0, &mut level_up_events, &mut next_state);
+        *last_score = player.score;
     }
 }
 
