@@ -47,6 +47,7 @@ impl Default for EnemyPowerUpTimer {
 impl Enemy {
     pub fn despawn(&mut self, entity: Entity, translation: &Vec3, meshes: &mut Assets<Mesh>, mesh_material: &mut Assets<ColorMaterial>, commands: &mut Commands) {
         commands.spawn((
+            GameEntity,
             Collectible,
             XP{ amount: 20 },
             Transform::from_translation(*translation),
