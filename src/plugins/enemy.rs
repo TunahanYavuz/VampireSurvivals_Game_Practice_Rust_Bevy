@@ -1,7 +1,11 @@
+use bevy::asset::Assets;
+use bevy::color::Color;
 use bevy::image::TextureAtlas;
-use bevy::prelude::{Children, Component, InheritedVisibility, NextState, Query, Resource, Sprite, States, Time, Timer, Transform, Vec3, With};
+use bevy::mesh::{Mesh, Mesh2d};
+use bevy::prelude::{Children, Circle, ColorMaterial, Component, InheritedVisibility, MeshMaterial2d, NextState, Query, Resource, Sprite, States, Time, Timer, Transform, Vec3, With};
 use bevy::time::TimerMode;
 use bevy_ecs::change_detection::{Res, ResMut};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::{Commands, Without};
 use rand::Rng;
 use crate::Atlases;
@@ -22,12 +26,42 @@ pub struct EnemyPowerUpTimer {
     pub timer: Timer,
     pub level: i32,
 }
+
+#[derive(Component)]
+pub struct XP{
+    pub amount: i32,
+}
+
+#[derive(Component)]
+pub struct Collectible;
+
 impl Default for EnemyPowerUpTimer {
     fn default() -> Self {
         Self {
             timer: Timer::from_seconds(10.0, TimerMode::Repeating),
             level: 1,
         }
+    }
+}
+
+impl Enemy {
+    pub fn despawn(&mut self, entity: Entity, translation: &Vec3, meshes: &mut Assets<Mesh>, mesh_material: &mut Assets<ColorMaterial>, commands: &mut Commands) {
+        commands.spawn((
+            Collectible,
+            XP{ amount: 20 },
+            Transform::from_translation(*translation),
+            AABB{
+                max_x: translation.x + 2.,
+                max_y: translation.y + 2.,
+                min_x: translation.x - 2.,
+                min_y: translation.y - 2.,
+                width: 7.,
+                height: 7.,
+            },
+            Mesh2d(meshes.add(Circle::new(5.0))),
+            MeshMaterial2d(mesh_material.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
+            ));
+        commands.entity(entity).try_despawn();
     }
 }
 

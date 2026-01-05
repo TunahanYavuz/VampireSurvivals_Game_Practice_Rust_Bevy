@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ui::Val::Auto;
 use rand::{rng};
 use rand::prelude::IndexedRandom;
 use crate::plugins::game_state::GameState;
@@ -84,10 +85,10 @@ pub fn show_upgrade_choices_on_level_up(
     mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     table: Query<Entity, With<WeaponTable>>,
+    asset_server: Res<AssetServer>,
 ){
-    for event in level_up_events.read() {
-        println!("Level {}! Seçim yapın:", event.level);
-
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    for _ in level_up_events.read() {
         let options = upgrade_choices.generate_random_options();
 
         next_state.set(GameState::UpgradeSelection);
@@ -100,7 +101,13 @@ pub fn show_upgrade_choices_on_level_up(
         for (i ,option) in options.iter().enumerate() {
             commands.entity(table_entity).with_children(|parent| {
                 parent.spawn((Button::default(), UpgradeButton(option.weapon_type),
-                Text::new(format!("Seçenek {} {} - {}", i, option.name, option.description))));
+                Text::new(format!("Seçenek {} {} - {}\n----------------", i, option.name, option.description)),
+                TextFont{
+                    font: font.clone(),
+                    font_size: 20.0,
+                    ..default()
+                }
+                ));
             });
         }
     }
@@ -114,12 +121,13 @@ pub fn create_table_ui(
         Node{
             width: Val::Percent(40.0),
             height: Val::Percent(50.0),
+            margin: UiRect{left: Auto, right: Auto, top: Auto, bottom: Auto},
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
             flex_wrap: FlexWrap::Wrap,
             ..default()
         },
-        BackgroundColor(Color::srgba(0.0, 0.5, 0.0, 0.7))
+        BackgroundColor(Color::srgba(0.7137, 0.7137, 0.7137, 0.92))
     ));
 }
 

@@ -50,7 +50,7 @@ fn main() {
                     reduce_player_health,
                     move_projectiles,
                     despawn_explosions,
-                    gain_xp_from_kills,
+                    collect_xp,
 
                 ).run_if(in_state(GameState::Playing)),
             ),
@@ -74,10 +74,8 @@ struct Atlases {
     ready: bool,
 }
 
-fn minimal_setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>) {
-    // Sadece kamera ve arka plan - bunlar hiç silinmeyecek
+fn minimal_setup(mut commands: Commands) {
     commands.spawn((Camera2d, Camera { ..default() }));
-
 }
 
 fn prepare_atlases_and_spawn(
