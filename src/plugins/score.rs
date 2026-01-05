@@ -18,8 +18,16 @@ pub fn setup_score_ui(
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
             right: Val::Px(10.0),
+            padding: UiRect::all(Val::Px(15.0)),
             ..default()
         },
+        Outline{
+            width: Val::Px(2.0),
+            offset: Val::Px(0.0),
+            color: Color::srgba(1.0, 0.0, 0.0, 0.8),
+        },
+        BorderRadius::all(Val::Px(5.0)),
+        BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.9)),
         ScoreText,
         ));
 }

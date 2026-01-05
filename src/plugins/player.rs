@@ -1,4 +1,4 @@
-use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::audio::{AudioPlayer, AudioSink, PlaybackSettings};
 use bevy::prelude::{ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
 use bevy_ecs::prelude::{MessageWriter, Res, Single};
 use bevy_ecs::system::{Local, ResMut};
@@ -143,7 +143,6 @@ pub fn collect_xp(
             if xp_aabb.self_aabb_intersects(player_aabb) {
                 player.gain_xp(xp.amount as f32, &mut level_up_events, &mut next_state, &mut commands, &audio);
                 commands.entity(entity).despawn();
-                println!("XP collected: {}", xp.amount);
             }
         }
     }

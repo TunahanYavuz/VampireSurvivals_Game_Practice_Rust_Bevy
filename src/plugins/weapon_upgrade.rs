@@ -97,16 +97,23 @@ pub fn show_upgrade_choices_on_level_up(
             commands.spawn((WeaponTable, Node::default()));
             continue;
         };
-
+        let options_len = options.len() as f32;
         for (i ,option) in options.iter().enumerate() {
             commands.entity(table_entity).with_children(|parent| {
-                parent.spawn((Button::default(), UpgradeButton(option.weapon_type),
-                Text::new(format!("Seçenek {} {} - {}\n----------------", i, option.name, option.description)),
-                TextFont{
-                    font: font.clone(),
-                    font_size: 20.0,
-                    ..default()
-                }
+                parent.spawn((
+                    Button::default(), UpgradeButton(option.weapon_type),
+                    Text::new(format!("Seçenek {} {} - {}", i, option.name, option.description)),
+                    TextFont{
+                        font: font.clone(),
+                        font_size: 20.0,
+                        ..default()
+                    },
+                    Node{height: Val::Percent(100.0/ options_len), width: Val::Percent(100.0), ..default()},
+                    Outline{
+                        width: Val::Px(2.0),
+                        offset: Val::Px(0.0),
+                        color: Color::srgba(0.0, 0.1, 0.2, 0.8),
+                    }
                 ));
             });
         }
@@ -122,8 +129,9 @@ pub fn create_table_ui(
             width: Val::Percent(40.0),
             height: Val::Percent(50.0),
             margin: UiRect{left: Auto, right: Auto, top: Auto, bottom: Auto},
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
+            display: Display::Flex,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             flex_wrap: FlexWrap::Wrap,
             ..default()
         },
