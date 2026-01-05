@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
 use bevy::color::Color;
@@ -164,12 +165,10 @@ pub fn spawn_enemies(
         return;
     };
 
-    let nx: f32 = rand::rng().random_range(-500.0 - player_transform.translation.x..-200.0 - player_transform.translation.x);
-    let ny: f32 = rand::rng().random_range(-500.0 - player_transform.translation.y..-200.0 - player_transform.translation.y);
-    let px: f32 = rand::rng().random_range(200.0 + player_transform.translation.x..500.0 + player_transform.translation.x);
-    let py: f32 = rand::rng().random_range(200.0 + player_transform.translation.y..500.0 + player_transform.translation.y);
-    let x = if nx.abs() > px.abs() { nx } else { px };
-    let y = if ny.abs() > py.abs() { ny } else { py };
+    let radius = rand::rng().random_range(500.0..800.0);
+    let angle = rand::rng().random_range(0.0..2. * PI);
+    let x = player_transform.translation.x + radius * angle.cos();
+    let y = player_transform.translation.y + radius * angle.sin();
 
     let body_atlas = atlases.body.as_ref().unwrap().clone();
     let shield_atlas = atlases.shield.as_ref().unwrap().clone();
