@@ -1,7 +1,9 @@
-use bevy::prelude::{ ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
-use bevy_ecs::prelude::{MessageWriter, Single};
+use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::prelude::{ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
+use bevy_ecs::prelude::{MessageWriter, Res, Single};
 use bevy_ecs::system::{Local, ResMut};
 use crate::plugins::aabb::AABB;
+use crate::plugins::audio::GameAudio;
 use crate::plugins::enemy::{Collectible, Enemy, XP};
 use crate::plugins::game_state::GameState;
 use crate::plugins::timers::{MoveTimer};
@@ -94,13 +96,17 @@ impl Player {
         }
     }
 
-    pub fn gain_xp(&mut self, amount: f32, message_writer: &mut MessageWriter<LevelUpEvent>, next_state: &mut NextState<GameState>){
+    pub fn gain_xp(&mut self, amount: f32, message_writer: &mut MessageWriter<LevelUpEvent>, next_state: &mut NextState<GameState>, commands: &mut Commands, audio: &GameAudio) {
         self.xp += amount;
 
         if self.xp >=self.xp_to_next_level{
             self.xp -= self.xp_to_next_level;
             self.xp_to_next_level *= 1.5;
             self.level += 1;
+            commands.spawn((
+                AudioPlayer(audio.collect_xp.clone()),
+                PlaybackSettings::DESPAWN,
+            ));
 
             message_writer.write(LevelUpEvent{level: self.level});
             println!("🎉 LEVEL UP! Level: {}", self.level);
@@ -109,20 +115,20 @@ impl Player {
     }
 }
 
-pub fn gain_xp_from_kills(
-    mut player_query: Query<&mut Player>,
-    mut last_score: Local<u32>,
-    mut level_up_events: MessageWriter<LevelUpEvent>,
-    mut next_state: ResMut<NextState<GameState>>,
-){
-    for mut player in player_query.iter_mut(){
-        let kills_gained = player.score.saturating_sub(*last_score);
-        if kills_gained > 0 {
-            player.gain_xp(kills_gained as f32 * 1.0, &mut level_up_events, &mut next_state);
-            *last_score = player.score;
-        }
-    }
-}
+// pub fn gain_xp_from_kills(
+//     mut player_query: Query<&mut Player>,
+//     mut last_score: Local<u32>,
+//     mut level_up_events: MessageWriter<LevelUpEvent>,
+//     mut next_state: ResMut<NextState<GameState>>,
+// ){
+//     for mut player in player_query.iter_mut(){
+//         let kills_gained = player.score.saturating_sub(*last_score);
+//         if kills_gained > 0 {
+//             player.gain_xp(kills_gained as f32 * 1.0, &mut level_up_events, &mut next_state);
+//             *last_score = player.score;
+//         }
+//     }
+// }
 
 pub fn collect_xp(
     mut player_query: Query<(&mut Player, &AABB), With<Player>>,
@@ -130,12 +136,12 @@ pub fn collect_xp(
     mut commands: Commands,
     mut level_up_events: MessageWriter<LevelUpEvent>,
     mut next_state: ResMut<NextState<GameState>>,
-
+    audio: Res<GameAudio>,
 ){
     for (mut player, player_aabb) in player_query.iter_mut(){
         for (xp_aabb, _collectible, xp, entity) in xp_query.iter_mut(){
             if xp_aabb.self_aabb_intersects(player_aabb) {
-                player.gain_xp(xp.amount as f32, &mut level_up_events, &mut next_state);
+                player.gain_xp(xp.amount as f32, &mut level_up_events, &mut next_state, &mut commands, &audio);
                 commands.entity(entity).despawn();
                 println!("XP collected: {}", xp.amount);
             }

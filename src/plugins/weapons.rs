@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
+use crate::plugins::audio::GameAudio;
 use crate::plugins::enemy::Enemy;
 use crate::plugins::player::Player;
 use crate::plugins::weapon_stats::WeaponStats;
@@ -163,6 +164,8 @@ pub fn move_player_addicted_weapons(
     mut enemies: Query<(&Transform, Entity, &mut Enemy), Without<PlayerAddictedWeapon>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    audio: Res<GameAudio>
+
 ){
     let Ok(mut player_transform) = player_query.single_mut() else { return; };
     for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp) in player_addicted_weapon.iter_mut() {
@@ -184,7 +187,7 @@ pub fn move_player_addicted_weapons(
                 enemy.health = enemy.health.saturating_sub(weapon.damage as i32);
                 if enemy.health <= 0 {
                     player_transform.1.score += 1;
-                    enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands);
+                    enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
                 }
             }
         }
@@ -213,6 +216,7 @@ pub fn move_projectiles(
     mut player: Single<&mut Player>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    audio: Res<GameAudio>
 ) {
     for (proj_entity, mut proj_transform, mut projectile) in projectiles.iter_mut() {
         // Hareketi uygula
@@ -242,7 +246,7 @@ pub fn move_projectiles(
                             commands.entity(proj_entity).try_despawn();
                             // Düşman öldüyse
                             if enemy.health <= 0 {
-                                enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands);
+                                enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
                                 player.score += 1;
                             }
                             break;
@@ -286,7 +290,7 @@ pub fn move_projectiles(
                                 // Hasar
                                 enemy.health = enemy.health.saturating_sub(projectile.damage as i32);
                                 if enemy.health <= 0 {
-                                    enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands);
+                                    enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
                                     player.score += 1;
                                 }
                             }

@@ -8,6 +8,7 @@ use crate::plugins::game_state::GameState;
 use crate::plugins::ground::{setup_ground, update_ground_chunks};
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
+use crate::plugins::audio::load_audio_assets;
 use crate::plugins::score::{setup_score_ui, update_score_ui, GameScore};
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use crate::plugins::weapon_upgrade::*;
@@ -30,7 +31,7 @@ fn main() {
         // Resources
         .init_resource::<TextureAssets>()
         .insert_resource(Atlases::default())
-        .add_systems(Startup, (minimal_setup, setup_score_ui, setup_ground))
+        .add_systems(Startup, (minimal_setup, setup_score_ui, setup_ground, load_audio_assets))
         .init_resource::<EnemySpawnTimer>()
         .init_resource::<MoveTimer>()
         .init_resource::<PlayerHealthReduceTimer>()

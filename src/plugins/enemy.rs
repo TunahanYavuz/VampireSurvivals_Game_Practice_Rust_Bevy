@@ -1,4 +1,5 @@
 use bevy::asset::Assets;
+use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
 use bevy::color::Color;
 use bevy::image::TextureAtlas;
 use bevy::mesh::{Mesh, Mesh2d};
@@ -10,6 +11,7 @@ use bevy_ecs::prelude::{Commands, Without};
 use rand::Rng;
 use crate::Atlases;
 use crate::plugins::aabb::AABB;
+use crate::plugins::audio::GameAudio;
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
@@ -45,7 +47,14 @@ impl Default for EnemyPowerUpTimer {
 }
 
 impl Enemy {
-    pub fn despawn(&mut self, entity: Entity, translation: &Vec3, meshes: &mut Assets<Mesh>, mesh_material: &mut Assets<ColorMaterial>, commands: &mut Commands) {
+    pub fn despawn(&mut self, 
+                   entity: Entity, 
+                   translation: &Vec3, 
+                   meshes: &mut Assets<Mesh>, 
+                   mesh_material: &mut Assets<ColorMaterial>, 
+                   commands: &mut Commands,
+                   audio: &GameAudio,
+    ) {
         commands.spawn((
             GameEntity,
             Collectible,
@@ -62,6 +71,11 @@ impl Enemy {
             Mesh2d(meshes.add(Circle::new(5.0))),
             MeshMaterial2d(mesh_material.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
             ));
+        commands.spawn((
+            AudioPlayer(audio.enemy_hit.clone()),
+            PlaybackSettings::DESPAWN,
+            ));
+        
         commands.entity(entity).try_despawn();
     }
 }
