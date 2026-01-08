@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::ui::Val::Auto;
 use rand::{rng};
 use rand::prelude::IndexedRandom;
+use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::weapon_stats::WeaponStats;
 use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, Projectile, ProjectileKind, RocketWeapon, Weapon};
@@ -203,16 +204,19 @@ pub fn handle_upgrade_input(
                 UpgradeSelectedEvent{
                     weapon_type: upgrade_button.0,
             });
-
         }
     }
 }
 
 pub fn cleanup_upgrade_ui_on_choice(
     table: Query<Entity, With<WeaponTable>>,
+    audio_entity: Query<Entity, With<GameAudioEntity>>,
     mut commands: Commands,
 ){
     for table_entity in table.iter() {
         commands.entity(table_entity).try_despawn();
+    }
+    for audio_entity in audio_entity.iter() {
+        commands.entity(audio_entity).despawn();
     }
 }

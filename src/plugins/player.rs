@@ -3,7 +3,7 @@ use bevy::prelude::{ButtonInput, Commands, Component, Entity, KeyCode, NextState
 use bevy_ecs::prelude::{MessageWriter, Res, Single};
 use bevy_ecs::system::{Local, ResMut};
 use crate::plugins::aabb::AABB;
-use crate::plugins::audio::GameAudio;
+use crate::plugins::audio::{GameAudio, GameAudioEntity};
 use crate::plugins::enemy::{Collectible, Enemy, XP};
 use crate::plugins::game_state::GameState;
 use crate::plugins::timers::{MoveTimer};
@@ -104,6 +104,7 @@ impl Player {
             self.xp_to_next_level *= 1.5;
             self.level += 1;
             commands.spawn((
+                GameAudioEntity,
                 AudioPlayer(audio.collect_xp.clone()),
                 PlaybackSettings::DESPAWN,
             ));

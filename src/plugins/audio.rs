@@ -6,6 +6,8 @@ pub struct GameAudio {
     pub enemy_hit: Handle<AudioSource>,
     pub collect_xp: Handle<AudioSource>,
 }
+#[derive(Component)]
+pub struct GameAudioEntity;
 
 pub fn load_audio_assets(
     asset_server: Res<AssetServer>,

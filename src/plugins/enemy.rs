@@ -41,7 +41,7 @@ pub struct Collectible;
 impl Default for EnemyPowerUpTimer {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(10.0, TimerMode::Repeating),
+            timer: Timer::from_seconds(40.0, TimerMode::Repeating),
             level: 1,
         }
     }
