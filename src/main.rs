@@ -9,6 +9,7 @@ use crate::plugins::ground::{setup_ground, update_ground_chunks};
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
 use crate::plugins::audio::load_audio_assets;
+use crate::plugins::main_menu::MainMenuPlugin;
 use crate::plugins::score::{setup_score_ui, update_score_ui, GameScore};
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use crate::plugins::weapon_upgrade::*;
@@ -19,6 +20,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
+        .insert_state(GameState::MainMenu)
         
         // Resources
         .init_resource::<GameScore>()
@@ -35,6 +37,7 @@ fn main() {
         .init_resource::<EnemySpawnTimer>()
         .init_resource::<MoveTimer>()
         .init_resource::<PlayerHealthReduceTimer>()
+        .add_plugins(MainMenuPlugin)
         .add_systems(
             Update,
             (

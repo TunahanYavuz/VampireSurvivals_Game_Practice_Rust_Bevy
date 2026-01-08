@@ -10,3 +10,4 @@ pub mod weapon_upgrade;
 pub mod weapon_stats;
 pub mod ground;
 pub mod audio;
+pub mod main_menu;
