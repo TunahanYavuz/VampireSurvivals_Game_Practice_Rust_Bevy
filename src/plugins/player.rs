@@ -1,7 +1,7 @@
-use bevy::audio::{AudioPlayer, AudioSink, PlaybackSettings};
+use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::{ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
-use bevy_ecs::prelude::{MessageWriter, Res, Single};
-use bevy_ecs::system::{Local, ResMut};
+use bevy_ecs::prelude::{MessageWriter, Res};
+use bevy_ecs::system::{ResMut, Single};
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::{GameAudio, GameAudioEntity};
 use crate::plugins::enemy::{Collectible, Enemy, XP};
@@ -116,21 +116,6 @@ impl Player {
     }
 }
 
-// pub fn gain_xp_from_kills(
-//     mut player_query: Query<&mut Player>,
-//     mut last_score: Local<u32>,
-//     mut level_up_events: MessageWriter<LevelUpEvent>,
-//     mut next_state: ResMut<NextState<GameState>>,
-// ){
-//     for mut player in player_query.iter_mut(){
-//         let kills_gained = player.score.saturating_sub(*last_score);
-//         if kills_gained > 0 {
-//             player.gain_xp(kills_gained as f32 * 1.0, &mut level_up_events, &mut next_state);
-//             *last_score = player.score;
-//         }
-//     }
-// }
-
 pub fn collect_xp(
     mut player_query: Query<(&mut Player, &AABB), With<Player>>,
     mut xp_query: Query<(&AABB, &Collectible, &XP, Entity)>,
@@ -146,5 +131,35 @@ pub fn collect_xp(
                 commands.entity(entity).despawn();
             }
         }
+    }
+}
+
+#[derive(Component)]
+pub struct XPMagnetite;
+
+pub fn collect_xp_with_magnet(
+    mut commands: Commands,
+    mut xp_query: Query<Entity, With<XP>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+){
+    if keyboard_input.just_pressed(KeyCode::KeyC){
+        for entity in xp_query {
+            commands.entity(entity).insert(XPMagnetite);
+        }
+    }
+}
+
+pub fn magnetite_xp_to_player(
+    mut xp_query: Query<(&mut Transform, &mut AABB), (With<XPMagnetite>, Without<Player>)>,
+    player_query: Query<&Transform, (With<Player>, Without<XPMagnetite>)>,
+){
+    let Ok(player_position) = player_query.single() else{
+        return;
+    };
+
+    for (mut xp_transform, mut xp_aabb) in xp_query.iter_mut(){
+        let direction = (player_position.translation - xp_transform.translation).normalize();
+        xp_transform.translation += direction * 5.;
+        xp_aabb.change_point(xp_transform.translation);
     }
 }

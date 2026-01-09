@@ -7,7 +7,7 @@ pub struct MainMenuPlugin;
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::MainMenu), setup_main_menu)
-            .add_systems(Update, handle_menu_buttons.run_if(in_state(GameState::MainMenu)))
+            .add_systems(Update, (handle_menu_buttons, button_hover_effect).run_if(in_state(GameState::MainMenu)))
             .add_systems(OnExit(GameState::MainMenu), cleanup_menu);
     }
 }
@@ -92,6 +92,24 @@ fn handle_menu_buttons(
                 MenuButton::Settings => println!("Settings clicked"),
                 MenuButton::Quit => {exit.write(AppExit::Success);},
             };
+        }
+    }
+}
+
+fn button_hover_effect(
+    interactions_q: Query<(&Interaction, Entity), (With<MenuButton>,Changed<Interaction>)>,
+    mut colors: Query<&mut BackgroundColor>,
+){
+    for (interaction, button) in &interactions_q {
+        let mut color = colors.get_mut(button).unwrap();
+        match *interaction {
+            Interaction::Hovered => {
+                *color = BackgroundColor(Color::srgb(0.5, 0.5, 0.5));
+            }
+            Interaction::None => {
+                *color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
+            }
+            Interaction::Pressed => {}
         }
     }
 }

@@ -18,7 +18,6 @@ pub struct Weapon {
     pub speed: f32,
 }
 
-// Farklı silah tipleri
 // Farklı silah tipleri - sadece özellikler
 #[derive(Component, Clone, Copy, PartialEq)]
 pub struct LaserWeapon {
@@ -30,10 +29,11 @@ pub struct RocketWeapon {
     pub explosion_radius: f32,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum ProjectileKind{
-    Laser{lazer_weapon: LaserWeapon},
-    Rocket{rocket_weapon: RocketWeapon},
+/// Mermi tipi - sadece tip belirteci
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ProjectileKind {
+    Laser { color: Color },
+    Rocket { explosion_radius: f32 },
 }
 
 // Mermi component'i
@@ -90,7 +90,7 @@ pub fn fire_laser_weapons(
 
         let direction = (target_pos - player_transform.translation).normalize();
         
-        // Mermi spawn et (ColorMaterial::from kullanıldı)
+        // Mermi spawn et
         commands.spawn((
             GameEntity,
             Projectile {
@@ -98,7 +98,7 @@ pub fn fire_laser_weapons(
                 speed: weapon.speed,
                 damage: weapon.damage,
                 lifetime: Timer::from_seconds(3.0, TimerMode::Once),
-                kind: ProjectileKind::Laser {lazer_weapon: *laser },
+                kind: ProjectileKind::Laser { color: laser.color },
             },
             Mesh2d(meshes.add(Circle::new(8.0))),
             MeshMaterial2d(materials.add(ColorMaterial::from(laser.color))),
@@ -112,13 +112,13 @@ pub fn fire_laser_weapons(
 pub fn fire_rocket_weapons(
     mut commands: Commands,
     time: Res<Time>,
-    mut weapons: Query<(&mut Weapon, &WeaponStats, &RocketWeapon), With<RocketWeapon>>,
+    mut weapons: Query<(&mut Weapon, &RocketWeapon), With<RocketWeapon>>,
     players: Query<&Transform, With<Player>>,
     enemies: Query<&Transform, With<Enemy>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    for (mut weapon, rocket_stats, rocket_comp) in weapons.iter_mut() {
+    for (mut weapon, rocket) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
 
         if !weapon.fire_timer.just_finished() {
@@ -135,15 +135,15 @@ pub fn fire_rocket_weapons(
 
         let direction = (target_pos - player_transform.translation).normalize();
 
-        // Roket mermisi spawn et (ColorMaterial::from kullanıldı)
+        // Roket mermisi spawn et - silah entity'sindeki explosion_radius kullan
         commands.spawn((
             GameEntity,
             Projectile {
                 direction,
-                speed: rocket_stats.base_speed,
+                speed: weapon.speed,
                 damage: weapon.damage,
                 lifetime: Timer::from_seconds(5.0, TimerMode::Once),
-                kind: ProjectileKind::Rocket { rocket_weapon: *rocket_comp },
+                kind: ProjectileKind::Rocket { explosion_radius: rocket.explosion_radius },
             },
             Mesh2d(meshes.add(Rectangle::new(12.0, 12.0))),
             MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(1.0, 0.5, 0.0)))),
@@ -228,7 +228,6 @@ pub fn move_projectiles(
             commands.entity(proj_entity).despawn();
             continue;
         }
-        let mut rocket_exploded = false;
 
         // Düşman çarpışma kontrolü
 
@@ -253,7 +252,7 @@ pub fn move_projectiles(
                         }
                     }
                 }
-                ProjectileKind::Rocket { rocket_weapon } => {
+                ProjectileKind::Rocket { explosion_radius } => {
                     // Önce roketin herhangi bir düşmana çarpıp çarpmadığını kontrol et
                     let mut explosion_pos: Option<Vec3> = None;
 
@@ -270,7 +269,7 @@ pub fn move_projectiles(
                         // Patlama görselini oluştur
                         commands.spawn((
                             GameEntity,
-                            Mesh2d(meshes.add(Circle::new(rocket_weapon.explosion_radius))),
+                            Mesh2d(meshes.add(Circle::new(*explosion_radius))),
                             MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(1.0, 0.1, 0.0, 0.3)))),
                             Transform::from_translation(explosion_center),
                             Explosion {
@@ -281,7 +280,7 @@ pub fn move_projectiles(
                         // Tüm düşmanları tekrar tara ve patlama yarıçapındakilere hasar ver
                         for (enemy_entity, mut enemy_transform, mut enemy, mut enemy_aabb) in enemies.iter_mut() {
                             let dist = enemy_transform.translation.distance(explosion_center);
-                            if dist <= rocket_weapon.explosion_radius {
+                            if dist <= *explosion_radius {
                                 // Knockback - patlamadan uzağa it
                                 let knockback_dir = (enemy_transform.translation - explosion_center).normalize_or_zero();
                                 enemy_transform.translation += knockback_dir * 20.;

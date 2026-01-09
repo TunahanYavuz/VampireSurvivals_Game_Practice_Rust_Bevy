@@ -43,6 +43,9 @@ fn main() {
             (
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
                 (
+                    collect_xp_with_magnet,
+                    magnetite_xp_to_player,
+                    enemy_collision_with_enemy,
                     update_score_ui,
                     update_ground_chunks,
                     follow,

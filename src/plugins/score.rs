@@ -39,3 +39,4 @@ pub fn update_score_ui(
         text.0 = format!("Score: {}\nXP:{}\nXP to next level:{}\nPlayer HP: {}", player.score, player.xp, player.xp_to_next_level, player.health);
     }
 }
+

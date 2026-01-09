@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
-use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, ProjectileKind, RocketWeapon, Weapon}; // GameEntity'yi buradan import edin
+use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, RocketWeapon, Weapon};
 
 #[derive(Component)]
 pub struct WeaponStats{
@@ -50,7 +50,7 @@ pub fn spawn_weapons_for_player(
         LaserWeapon { color: Color::srgb(0.0, 0.5, 0.0) },
         WeaponLevel {
             level: 1,
-            weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Laser{lazer_weapon: LaserWeapon{color: Color::srgb(0.0, 0.5, 0.0)}} },
+            weapon_type: WeaponType::Laser,
         },
         WeaponStats {
             base_damage: 50.0,
@@ -61,6 +61,7 @@ pub fn spawn_weapons_for_player(
     ));
 
     // Roket silahı
+    let rocket_base_range = 100.0;
     commands.spawn((
         GameEntity,
         Weapon {
@@ -69,27 +70,26 @@ pub fn spawn_weapons_for_player(
             fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
             speed: 200.0,
         },
-        RocketWeapon { explosion_radius: 100.0 },
+        RocketWeapon { explosion_radius: rocket_base_range },
         WeaponLevel {
             level: 1,
-            weapon_type: WeaponType::Projectile {weapon: ProjectileKind::Rocket { rocket_weapon: RocketWeapon {explosion_radius: 50.0}} },
+            weapon_type: WeaponType::Rocket,
         },
         WeaponStats {
             base_damage: 50.0,
             base_fire_rate: 0.2,
             base_speed: 200.0,
-            base_range: 0.0,
+            base_range: rocket_base_range,
         },
     ));
 
     // Alev silahı
-    // Görseli unit circle olarak oluşturup Transform.scale ile gerçek yarıçapı uyguluyoruz
     let base_range = 75.0;
     commands.spawn((
         GameEntity,
-        Mesh2d(meshes.add(Circle::new(1.0))), // unit circle
+        Mesh2d(meshes.add(Circle::new(1.0))),
         MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(1.0, 0.5, 0.0, 0.3)))),
-        PlayerAddictedWeapon{radius: base_range},
+        PlayerAddictedWeapon{ radius: base_range },
         Weapon {
             fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
             damage: 5.0,
@@ -108,7 +108,7 @@ pub fn spawn_weapons_for_player(
         },
         Transform {
             translation: _player_pos,
-            scale: Vec3::splat(base_range), // başlangıç görsel ölçeği
+            scale: Vec3::splat(base_range),
             ..Default::default()
         },
     ));

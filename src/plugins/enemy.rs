@@ -1,10 +1,10 @@
 use std::f32::consts::PI;
 use bevy::asset::Assets;
-use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
+use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::color::Color;
 use bevy::image::TextureAtlas;
 use bevy::mesh::{Mesh, Mesh2d};
-use bevy::prelude::{Children, Circle, ColorMaterial, Component, InheritedVisibility, MeshMaterial2d, NextState, Query, Resource, Sprite, States, Time, Timer, Transform, Vec3, With};
+use bevy::prelude::{Children, Circle, ColorMaterial, Component, InheritedVisibility, MeshMaterial2d, Query, Resource, Sprite, Time, Timer, Transform, Vec3, With};
 use bevy::time::TimerMode;
 use bevy_ecs::change_detection::{Res, ResMut};
 use bevy_ecs::entity::Entity;
@@ -62,12 +62,12 @@ impl Enemy {
             XP{ amount: 20 },
             Transform::from_translation(*translation),
             AABB{
-                max_x: translation.x + 2.,
-                max_y: translation.y + 2.,
-                min_x: translation.x - 2.,
-                min_y: translation.y - 2.,
-                width: 7.,
-                height: 7.,
+                max_x: translation.x + 20.,
+                max_y: translation.y + 20.,
+                min_x: translation.x - 20.,
+                min_y: translation.y - 20.,
+                width: 20.,
+                height: 20.,
             },
             Mesh2d(meshes.add(Circle::new(5.0))),
             MeshMaterial2d(mesh_material.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
@@ -175,7 +175,7 @@ pub fn spawn_enemies(
 
     commands
         .spawn((
-            GameEntity,  // ← Marker eklendi
+            GameEntity,
             Transform::from_xyz(x, y, 0.0),
             Enemy { health: 100 * level, damage: 1 * level, speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32) },
             InheritedVisibility::default(),
@@ -183,14 +183,28 @@ pub fn spawn_enemies(
         ))
         .with_children(|parent| {
             parent.spawn((
-                GameEntity,  // ← Child'lara da marker
                 Sprite::from_atlas_image(textures.body.clone(), TextureAtlas { layout: body_atlas.clone(), index: 15 }),
                 EnemySprit { index: 0 },
             ));
             parent.spawn((
-                GameEntity,  // ← Child'lara da marker
                 Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas.clone(), index: 15 }),
                 EnemySprit { index: 0 },
             ));
         });
+}
+
+pub fn enemy_collision_with_enemy(
+    mut enemy_query: Query<(&mut Transform, &AABB), With<Enemy>>,
+){
+    let mut combinations = enemy_query.iter_combinations_mut();
+
+    while let Some([(mut transform1, aabb1), (mut transform2, aabb2)]) = combinations.fetch_next() {
+        if aabb1.self_aabb_intersects(aabb2) {
+            let direction = (transform1.translation - transform2.translation).normalize();
+            let push_strength = 2.0;
+
+            transform1.translation += direction * push_strength;
+            transform2.translation -= direction * push_strength;
+        }
+    }
 }
