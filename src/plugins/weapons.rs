@@ -138,7 +138,6 @@ pub fn fire_raygun_weapons(
 
             let direction = enemy_transform.translation - player_transform.translation;
 
-            // Basit çizgi mesh'i kullan - lyon yerine
             commands.spawn((
                 GameEntity,
                 RayGunRay{
@@ -149,7 +148,7 @@ pub fn fire_raygun_weapons(
                 Mesh2d(meshes.add(create_thick_line_mesh(
                     Vec3::ZERO,
                     direction,
-                    5.0 // Kalınlık
+                    5.0
                 ))),
                 MeshMaterial2d(materials.add(ColorMaterial::from(raygun.color))),
                 Transform::from_translation(player_transform.translation.with_z(10.0)),
@@ -164,7 +163,6 @@ fn create_thick_line_mesh(start: Vec3, end: Vec3, thickness: f32) -> Mesh {
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, default());
 
-    // 4 köşe ile dikdörtgen
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_POSITION,
         vec![
@@ -175,7 +173,6 @@ fn create_thick_line_mesh(start: Vec3, end: Vec3, thickness: f32) -> Mesh {
         ],
     );
 
-    // 2 üçgen (6 index)
     mesh.insert_indices(Indices::U32(vec![
         0, 1, 2,
         0, 2, 3,
