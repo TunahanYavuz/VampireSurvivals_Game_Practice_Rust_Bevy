@@ -43,6 +43,10 @@ fn main() {
             (
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
                 (
+                    update_raygun_rays,
+                    cleanup_raygun_rays,
+                    raygun_damage,
+                    fire_raygun_weapons,
                     collect_xp_with_magnet,
                     magnetite_xp_to_player,
                     enemy_collision_with_enemy,
@@ -58,7 +62,6 @@ fn main() {
                     move_projectiles,
                     despawn_explosions,
                     collect_xp,
-
                 ).run_if(in_state(GameState::Playing)),
             ),
         )
@@ -134,7 +137,7 @@ fn prepare_atlases_and_spawn(
         ),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Player {
-            health: 1,
+            health: 100,
             movement: 200.,
             ..default()
         },

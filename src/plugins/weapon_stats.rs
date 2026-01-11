@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
-use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, RocketWeapon, Weapon};
+use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
 
 #[derive(Component)]
 pub struct WeaponStats{
@@ -80,6 +80,27 @@ pub fn spawn_weapons_for_player(
             base_fire_rate: 0.2,
             base_speed: 200.0,
             base_range: rocket_base_range,
+        },
+    ));
+    //Raygun weapon
+    commands.spawn((
+        GameEntity,
+        Weapon {
+            owner: player_entity,
+            damage: 10.0,
+            fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+            speed: 0.0,
+        },
+        RayGunWeapon::default(),
+        WeaponLevel {
+            level: 1,
+            weapon_type: WeaponType::RayGun,
+        },
+        WeaponStats {
+            base_damage: 10.0,
+            base_fire_rate: 0.1,
+            base_speed: 0.0,
+            base_range: 0.0,
         },
     ));
 

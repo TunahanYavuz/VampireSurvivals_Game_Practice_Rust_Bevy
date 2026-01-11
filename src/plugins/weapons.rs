@@ -1,3 +1,4 @@
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::GameAudio;
@@ -22,6 +23,25 @@ pub struct Weapon {
 #[derive(Component, Clone, Copy, PartialEq)]
 pub struct LaserWeapon {
     pub color: Color,
+}
+
+#[derive(Component)]
+pub struct RayGunWeapon {
+    pub color: Color,
+    pub pierce_count: u32,
+    pub targeted_enemies: Vec<Entity>,
+    pub retarget_timer: Timer,
+}
+
+impl Default for RayGunWeapon {
+    fn default() -> Self {
+        Self{
+            color: Color::srgb(0.0, 1.0, 1.0),
+            pierce_count: 3,
+            targeted_enemies: Vec::new(),
+            retarget_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+        }
+    }
 }
 
 #[derive(Component, Clone, Copy, PartialEq)]
@@ -57,9 +77,214 @@ pub struct PlayerAddictedWeapon{
 }
 
 
+#[derive(Component)]
+pub struct RayGunRay{
+    pub target_entity: Entity,
+    pub lifetime: Timer,
+    pub damage: f32,
+    pub damage_timer: Timer,
+}
 
-// Player için silahları bir kere spawn et
+impl Default for RayGunRay {
+    fn default() -> Self {
+        Self {
+            target_entity: Entity::PLACEHOLDER,
+            lifetime: Timer::from_seconds(0.5, TimerMode::Once),
+            damage: 10.0,
+            damage_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+        }
+    }
+}
 
+pub fn fire_raygun_weapons(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut weapons: Query<(&mut Weapon, &mut RayGunWeapon), With<RayGunWeapon>>,
+    player: Query<&Transform, With<Player>>,
+    enemies: Query<(Entity, &Transform), With<Enemy>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+){
+    for (mut weapon, mut raygun) in weapons.iter_mut() {
+        weapon.fire_timer.tick(time.delta());
+        raygun.retarget_timer.tick(time.delta());
+
+        let Ok(player_transform) = player.get(weapon.owner) else {
+            continue;
+        };
+
+        if raygun.retarget_timer.just_finished() {
+            raygun.targeted_enemies.retain(|&e| enemies.get(e).is_ok());
+
+            if raygun.targeted_enemies.len() < raygun.pierce_count as usize {
+                let mut sorted_enemies: Vec<(Entity, f32)> = enemies.iter()
+                    .filter(|(e, _ )| !raygun.targeted_enemies.contains(e))
+                    .map(|(e, t)| (e, player_transform.translation.distance(t.translation)))
+                    .collect();
+                sorted_enemies.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+                for (enemy_entity, _) in sorted_enemies.iter().take(raygun.pierce_count as usize - raygun.targeted_enemies.len()) {
+                    raygun.targeted_enemies.push(*enemy_entity);
+                }
+            }
+        }
+
+        if !weapon.fire_timer.just_finished() {
+            continue;
+        }
+
+        for &enemy_entity in &raygun.targeted_enemies {
+            let Ok((enemy_entity, enemy_transform)) = enemies.get(enemy_entity) else { continue; };
+
+            let direction = enemy_transform.translation - player_transform.translation;
+
+            // Basit çizgi mesh'i kullan - lyon yerine
+            commands.spawn((
+                GameEntity,
+                RayGunRay{
+                    target_entity: enemy_entity,
+                    damage: weapon.damage,
+                    ..default()
+                },
+                Mesh2d(meshes.add(create_thick_line_mesh(
+                    Vec3::ZERO,
+                    direction,
+                    5.0 // Kalınlık
+                ))),
+                MeshMaterial2d(materials.add(ColorMaterial::from(raygun.color))),
+                Transform::from_translation(player_transform.translation.with_z(10.0)),
+                GlobalTransform::default(),
+            ));
+        }
+    }
+}
+fn create_thick_line_mesh(start: Vec3, end: Vec3, thickness: f32) -> Mesh {
+    let direction = (end - start).normalize();
+    let perpendicular = Vec3::new(-direction.y, direction.x, 0.0) * thickness * 0.5;
+
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, default());
+
+    // 4 köşe ile dikdörtgen
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![
+            [start.x - perpendicular.x, start.y - perpendicular.y, start.z],
+            [start.x + perpendicular.x, start.y + perpendicular.y, start.z],
+            [end.x + perpendicular.x, end.y + perpendicular.y, end.z],
+            [end.x - perpendicular.x, end.y - perpendicular.y, end.z],
+        ],
+    );
+
+    // 2 üçgen (6 index)
+    mesh.insert_indices(Indices::U32(vec![
+        0, 1, 2,
+        0, 2, 3,
+    ]));
+
+    mesh
+}
+
+
+pub fn cleanup_raygun_rays(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut raygun_q: Query<(Entity, &mut RayGunRay), With<RayGunRay>>,
+) {
+    for (entity, mut ray) in raygun_q.iter_mut() {
+        ray.lifetime.tick(time.delta());
+        if ray.lifetime.just_finished() {
+            commands.entity(entity).despawn();
+        }
+
+    }
+}
+
+pub fn update_raygun_rays(
+    mut raygun_q: Query<(&RayGunRay, &mut Transform, &Mesh2d), (With<RayGunRay>, Without<Player>, Without<Enemy>)>,
+    enemies: Query<&Transform, (With<Enemy>, Without<Player>)>,
+    player: Query<&Transform, (With<Player>, Without<Enemy>)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let Ok(player_transform) = player.single() else { return };
+
+    for (ray, mut ray_transform, mesh_handle) in raygun_q.iter_mut() {
+        ray_transform.translation = player_transform.translation.with_z(10.0);
+
+        if let Ok(enemy_transform) = enemies.get(ray.target_entity) {
+            let direction = enemy_transform.translation - player_transform.translation;
+
+            if let Some(mesh) = meshes.get_mut(&mesh_handle.0) {
+                // Kalın çizgi için mesh'i güncelle
+                let perpendicular = Vec3::new(-direction.y, direction.x, 0.0).normalize() * 2.5;
+
+                mesh.insert_attribute(
+                    Mesh::ATTRIBUTE_POSITION,
+                    vec![
+                        [-perpendicular.x, -perpendicular.y, 0.0],
+                        [perpendicular.x, perpendicular.y, 0.0],
+                        [direction.x + perpendicular.x, direction.y + perpendicular.y, 0.0],
+                        [direction.x - perpendicular.x, direction.y - perpendicular.y, 0.0],
+                    ],
+                );
+            }
+        }
+    }
+}
+
+pub fn raygun_damage(
+    mut raygun_q: Query<(&mut RayGunRay, Entity), With<RayGunRay>>,
+    mut enemies: Query<(Entity, &mut Enemy, &Transform), (With<Enemy>, Without<Player>)>,
+    time: Res<Time>,
+    mut commands: Commands,
+    mut player: Query<&mut Player, (With<Player>, Without<Enemy>)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    audio: Res<GameAudio>,
+    mut raygun_weapons: Query<&mut RayGunWeapon, With<RayGunWeapon>>
+){
+    let Ok(mut player) = player.single_mut() else { return; };
+
+    // Ölen düşmanları topla
+    let mut dead_enemies = Vec::new();
+
+    // İlk geçiş: damage uygula ve ölen düşmanları topla
+    for (mut raygun, raygun_entity) in raygun_q.iter_mut() {
+        raygun.damage_timer.tick(time.delta());
+
+        if !raygun.damage_timer.just_finished() {
+            continue;
+        }
+
+        // Düşman hâlâ var mı kontrol et
+        let Ok((enemy_entity, mut enemy, enemy_transform)) = enemies.get_mut(raygun.target_entity) else {
+            // Düşman yok, ray'i sil
+            commands.entity(raygun_entity).despawn();
+            continue;
+        };
+
+        enemy.health = enemy.health.saturating_sub(raygun.damage as i32);
+
+        if enemy.health <= 0 {
+            enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
+            player.score += 1;
+            dead_enemies.push(enemy_entity);
+        }
+    }
+
+    // İkinci geçiş: ölen düşmanların raylerini temizle
+    if !dead_enemies.is_empty() {
+        for (raygun, raygun_entity) in raygun_q.iter() {
+            if dead_enemies.contains(&raygun.target_entity) {
+                commands.entity(raygun_entity).despawn();
+            }
+        }
+
+        // Silahlardan ölen düşmanları temizle
+        for mut raygun_weapon in raygun_weapons.iter_mut() {
+            raygun_weapon.targeted_enemies.retain(|&e| !dead_enemies.contains(&e));
+        }
+    }
+}
 
 // Lazer silahlarını ateşle
 pub fn fire_laser_weapons(

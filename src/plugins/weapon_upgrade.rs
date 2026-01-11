@@ -5,13 +5,14 @@ use rand::prelude::IndexedRandom;
 use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::weapon_stats::WeaponStats;
-use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RocketWeapon, Weapon};
+use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
 
 /// Silah tipi - sadece tip belirteci, veri içermez
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum WeaponType {
     Laser,
     Rocket,
+    RayGun,
     Addicted,
 }
 
@@ -64,6 +65,12 @@ impl UpgradeChoices {
                 weapon_type: WeaponType::Addicted,
                 name: "Alev Silahı Güçlendir".to_string(),
                 description: "Hasar +3, Alan +15%".to_string(),
+                icon: None,
+            },
+            UpgradeOption {
+                weapon_type: WeaponType::RayGun,
+                name: "Işın Silahı Güçlendir".to_string(),
+                description: "Hasar +3, Hedef +1".to_string(),
                 icon: None,
             },
         ];
@@ -150,6 +157,7 @@ pub fn apply_weapon_upgrade(
         Option<&mut LaserWeapon>,
         Option<&mut RocketWeapon>,
         Option<&mut PlayerAddictedWeapon>,
+        Option<&mut RayGunWeapon>,
     )>,
     mut next_state: ResMut<NextState<GameState>>,
     mut upgrade_choices: ResMut<UpgradeChoices>,
@@ -157,7 +165,7 @@ pub fn apply_weapon_upgrade(
     for event in upgrade_events.read() {
         upgrade_choices.waiting_for_choice = false;
         
-        for (mut weapon, mut level, stats, laser, rocket, addicted) in weapons.iter_mut() {
+        for (mut weapon, mut level, stats, laser, rocket, addicted, raygun) in weapons.iter_mut() {
             // Silah tipini kontrol et
             if level.weapon_type != event.weapon_type {
                 continue;
@@ -194,6 +202,11 @@ pub fn apply_weapon_upgrade(
                         println!("Alev silahı yükseltildi! Yeni yarıçap: {}", addicted_weapon.radius);
                     }
                 },
+                WeaponType::RayGun => {
+                    if let Some(mut raygun) = raygun {
+                        raygun.pierce_count += 1;
+                    }
+                }
             }
             
             next_state.set(GameState::Playing);
