@@ -23,6 +23,7 @@ pub struct Enemy {
     pub health: i32,
     pub speed: f32,
     pub damage: i32,
+    pub xp_drop: i32,
 }
 #[derive(Resource)]
 pub struct EnemyPowerUpTimer {
@@ -59,7 +60,7 @@ impl Enemy {
         commands.spawn((
             GameEntity,
             Collectible,
-            XP{ amount: 20 },
+            XP{ amount: self.xp_drop },
             Transform::from_translation(*translation),
             AABB{
                 max_x: translation.x + 20.,
@@ -170,24 +171,33 @@ pub fn spawn_enemies(
     let x = player_transform.translation.x + radius * angle.cos();
     let y = player_transform.translation.y + radius * angle.sin();
 
-    let body_atlas = atlases.body.as_ref().unwrap().clone();
+    let body_atlas = atlases.zombie.as_ref().unwrap().clone();
     let shield_atlas = atlases.shield.as_ref().unwrap().clone();
+
+    let spirit = match level {
+        1 => Sprite::from_atlas_image(textures.zombie.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+        2 => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+        _ => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+    };
 
     commands
         .spawn((
             GameEntity,
             Transform::from_xyz(x, y, 0.0),
-            Enemy { health: 100 * level, damage: 1 * level, speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32) },
+            Enemy {
+                health: 100 * level, damage: 1 * level,
+                speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32),
+                xp_drop: 20 * level},
             InheritedVisibility::default(),
             AABB { max_x: x + 25., max_y: y + 25., min_x: x - 25., min_y: y - 25., width: 50., height: 50. },
         ))
         .with_children(|parent| {
             parent.spawn((
-                Sprite::from_atlas_image(textures.body.clone(), TextureAtlas { layout: body_atlas.clone(), index: 15 }),
+                spirit,
                 EnemySprit { index: 0 },
             ));
             parent.spawn((
-                Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas.clone(), index: 15 }),
+                Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas, index: 15 }),
                 EnemySprit { index: 0 },
             ));
         });

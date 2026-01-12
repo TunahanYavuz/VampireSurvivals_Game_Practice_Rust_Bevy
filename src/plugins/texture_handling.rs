@@ -8,6 +8,8 @@ use bevy_ecs::world::FromWorld;
 pub struct TextureAssets {
     pub body: Handle<Image>,
     pub shield: Handle<Image>,
+    pub zombie: Handle<Image>,
+    pub knight: Handle<Image>,
 }
 impl FromWorld for TextureAssets {
     fn from_world(world: &mut World) -> Self {
@@ -15,7 +17,9 @@ impl FromWorld for TextureAssets {
             .expect("AssetServer resource not found.");
         Self{
             body: asset_server.load("BODY_skeleton.png"),
-            shield: asset_server.load("WEAPON_shield_cutout_body.png")
+            shield: asset_server.load("WEAPON_shield_cutout_body.png"),
+            zombie: asset_server.load("zombie.png"),
+            knight: asset_server.load("knight.png"),
         }
     }
 }

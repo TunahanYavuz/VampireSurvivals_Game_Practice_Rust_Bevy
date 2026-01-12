@@ -39,6 +39,18 @@ pub fn spawn_weapons_for_player(
     println!("Spawning weapons for player!");
 
     // Lazer silahı
+    //spawn_lazer_weapon(commands, player_entity);
+
+    // Roket silahı
+    spawn_rocket_weapon(commands, player_entity);
+    //Raygun weapon
+    //spawn_ragun_weapon(commands, player_entity);
+
+    // Alev silahı
+    //spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials);
+}
+
+pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity){
     commands.spawn((
         GameEntity,
         Weapon {
@@ -59,15 +71,16 @@ pub fn spawn_weapons_for_player(
             base_range: 0.0,
         },
     ));
+}
 
-    // Roket silahı
+pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity){
     let rocket_base_range = 100.0;
     commands.spawn((
         GameEntity,
         Weapon {
             owner: player_entity,
             damage: 100.0,
-            fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+            fire_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
             speed: 200.0,
         },
         RocketWeapon { explosion_radius: rocket_base_range },
@@ -82,7 +95,9 @@ pub fn spawn_weapons_for_player(
             base_range: rocket_base_range,
         },
     ));
-    //Raygun weapon
+}
+
+pub fn spawn_ragun_weapon(commands: &mut Commands, player_entity: Entity){
     commands.spawn((
         GameEntity,
         Weapon {
@@ -103,8 +118,9 @@ pub fn spawn_weapons_for_player(
             base_range: 0.0,
         },
     ));
+}
 
-    // Alev silahı
+pub fn spawn_flame_weapon(commands: &mut Commands, player_entity: Entity, _player_pos: Vec3, meshes: &mut Assets<Mesh>, materials: &mut Assets<ColorMaterial>){
     let base_range = 75.0;
     commands.spawn((
         GameEntity,

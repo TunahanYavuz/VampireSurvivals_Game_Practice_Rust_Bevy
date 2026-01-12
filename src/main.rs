@@ -20,8 +20,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
-        .insert_state(GameState::MainMenu)
-        
         // Resources
         .init_resource::<GameScore>()
         .init_resource::<UpgradeChoices>()
@@ -44,7 +42,7 @@ fn main() {
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
                 (
                     update_raygun_rays,
-                    cleanup_raygun_rays,
+                    cleanup_lifetime_over,
                     raygun_damage,
                     fire_raygun_weapons,
                     collect_xp_with_magnet,
@@ -60,7 +58,6 @@ fn main() {
                     spawn_enemies,
                     reduce_player_health,
                     move_projectiles,
-                    despawn_explosions,
                     collect_xp,
                 ).run_if(in_state(GameState::Playing)),
             ),
@@ -75,12 +72,13 @@ fn main() {
         .run();
 }
 
-// Marker component - oyun sırasında oluşturulan tüm entity'lere eklenecek
 
 #[derive(Resource, Default)]
 struct Atlases {
     body: Option<Handle<TextureAtlasLayout>>,
     shield: Option<Handle<TextureAtlasLayout>>,
+    zombie: Option<Handle<TextureAtlasLayout>>,
+    knight: Option<Handle<TextureAtlasLayout>>,
     ready: bool,
 }
 
@@ -105,6 +103,8 @@ fn prepare_atlases_and_spawn(
 
     if !asset_server.load_state(&textures.body).is_loaded()
         || !asset_server.load_state(&textures.shield).is_loaded()
+        || !asset_server.load_state(&textures.zombie).is_loaded()
+        || !asset_server.load_state(&textures.knight).is_loaded()
     {
         return;
     }
@@ -119,10 +119,15 @@ fn prepare_atlases_and_spawn(
     let layout = TextureAtlasLayout::from_grid(UVec2::new(frame_w, frame_h), 9, 4, None, None);
 
     let body_atlas = texture_atlases.add(layout.clone());
-    let shield_atlas = texture_atlases.add(layout);
+    let shield_atlas = texture_atlases.add(layout.clone());
+    let knight_atlas = texture_atlases.add(layout.clone());
+    let zombie_atlas = texture_atlases.add(layout);
 
     atlases.body = Some(body_atlas.clone());
-    atlases.shield = Some(shield_atlas.clone());
+    atlases.shield = Some(shield_atlas);
+    atlases.zombie = Some(zombie_atlas);
+    atlases.knight = Some(knight_atlas);
+    
     atlases.ready = true;
 
     // Player spawn - GameEntity marker ile işaretle

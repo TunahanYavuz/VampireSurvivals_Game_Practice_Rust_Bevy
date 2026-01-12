@@ -182,17 +182,24 @@ fn create_thick_line_mesh(start: Vec3, end: Vec3, thickness: f32) -> Mesh {
 }
 
 
-pub fn cleanup_raygun_rays(
+pub fn cleanup_lifetime_over(
     mut commands: Commands,
     time: Res<Time>,
-    mut raygun_q: Query<(Entity, &mut RayGunRay), With<RayGunRay>>,
+    mut rays: Query<(Entity, &mut RayGunRay), With<RayGunRay>>,
+    mut explosions: Query<(Entity, &mut Explosion), With<Explosion>>,
 ) {
-    for (entity, mut ray) in raygun_q.iter_mut() {
+    for (entity, mut ray) in rays.iter_mut() {
         ray.lifetime.tick(time.delta());
         if ray.lifetime.just_finished() {
             commands.entity(entity).despawn();
         }
+    }
 
+    for (entity, mut explosion) in explosions.iter_mut() {
+        explosion.lifetime.tick(time.delta());
+        if explosion.lifetime.just_finished() {
+            commands.entity(entity).despawn();
+        }
     }
 }
 
@@ -416,18 +423,7 @@ pub fn move_player_addicted_weapons(
     }
 }
 
-pub fn despawn_explosions(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut explosions: Query<(Entity, &mut Explosion), With<Explosion>>,
-){
-    for (explosion_entity, mut explosion) in explosions.iter_mut() {
-        explosion.lifetime.tick(time.delta());
-        if explosion.lifetime.just_finished() {
-            commands.entity(explosion_entity).despawn();
-        }
-    }
-}
+
 
 // Mermileri hareket ettir ve çarpışma kontrolü yap
 pub fn move_projectiles(

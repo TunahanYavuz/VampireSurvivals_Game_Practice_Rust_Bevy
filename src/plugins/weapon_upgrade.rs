@@ -4,7 +4,8 @@ use rand::{rng};
 use rand::prelude::IndexedRandom;
 use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
-use crate::plugins::weapon_stats::WeaponStats;
+use crate::plugins::player::Player;
+use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_ragun_weapon, spawn_rocket_weapon, WeaponStats};
 use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
 
 /// Silah tipi - sadece tip belirteci, veri içermez
@@ -161,10 +162,29 @@ pub fn apply_weapon_upgrade(
     )>,
     mut next_state: ResMut<NextState<GameState>>,
     mut upgrade_choices: ResMut<UpgradeChoices>,
+    mut commands: Commands,
+    player_q: Query<(Entity, &Transform), With<Player>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ){
     for event in upgrade_events.read() {
         upgrade_choices.waiting_for_choice = false;
-        
+
+        let weapon_exists = weapons.iter().any(|(_, level, ..)| level.weapon_type == event.weapon_type);
+
+        if !weapon_exists {
+            let Ok(player_entity) = player_q.single() else {continue;};
+
+            match event.weapon_type {
+                WeaponType::Laser => spawn_lazer_weapon(&mut commands, player_entity.0),
+                WeaponType::Rocket => spawn_rocket_weapon(&mut commands, player_entity.0),
+                WeaponType::RayGun => spawn_ragun_weapon(&mut commands, player_entity.0),
+                WeaponType::Addicted => spawn_flame_weapon(&mut commands, player_entity.0, player_entity.1.translation, &mut meshes, &mut materials ),
+            }
+            next_state.set(GameState::Playing);
+            continue;
+        }
+
         for (mut weapon, mut level, stats, laser, rocket, addicted, raygun) in weapons.iter_mut() {
             // Silah tipini kontrol et
             if level.weapon_type != event.weapon_type {
