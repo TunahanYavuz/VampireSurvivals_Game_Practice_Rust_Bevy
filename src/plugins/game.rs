@@ -32,8 +32,6 @@ impl Plugin for GamePlugin {
 pub struct Atlases {
     pub body: Option<Handle<TextureAtlasLayout>>,
     pub shield: Option<Handle<TextureAtlasLayout>>,
-    pub zombie: Option<Handle<TextureAtlasLayout>>,
-    pub knight: Option<Handle<TextureAtlasLayout>>,
     pub ready: bool,
 }
 
@@ -75,13 +73,11 @@ fn prepare_atlases_and_spawn(
 
     let body_atlas = texture_atlases.add(layout.clone());
     let shield_atlas = texture_atlases.add(layout.clone());
-    let knight_atlas = texture_atlases.add(layout.clone());
-    let zombie_atlas = texture_atlases.add(layout);
+
 
     atlases.body = Some(body_atlas.clone());
     atlases.shield = Some(shield_atlas);
-    atlases.zombie = Some(zombie_atlas);
-    atlases.knight = Some(knight_atlas);
+
     
     atlases.ready = true;
 

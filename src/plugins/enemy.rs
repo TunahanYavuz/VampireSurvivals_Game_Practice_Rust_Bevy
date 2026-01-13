@@ -188,7 +188,7 @@ pub fn spawn_enemies(
     let x = player_transform.translation.x + radius * angle.cos();
     let y = player_transform.translation.y + radius * angle.sin();
 
-    let body_atlas = atlases.zombie.as_ref().unwrap().clone();
+    let body_atlas = atlases.body.as_ref().unwrap().clone();
     let shield_atlas = atlases.shield.as_ref().unwrap().clone();
     if let Some((body_lay, _shield_lay)) = atlas_layouts.get(&body_atlas).zip(atlas_layouts.get(&shield_atlas)) {
         if let Some(body_rect) = body_lay.textures.get(0) {
@@ -197,9 +197,9 @@ pub fn spawn_enemies(
 
 
             let spirit = match level {
-                1 => Sprite::from_atlas_image(textures.zombie.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-                2 => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-                _ => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+                1 => Sprite::from_atlas_image(textures.robot.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+                2 => Sprite::from_atlas_image(textures.wizard.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+                _ => Sprite::from_atlas_image(textures.elf.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
             };
 
 

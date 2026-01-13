@@ -10,6 +10,9 @@ pub struct TextureAssets {
     pub shield: Handle<Image>,
     pub zombie: Handle<Image>,
     pub knight: Handle<Image>,
+    pub wizard: Handle<Image>,
+    pub elf: Handle<Image>,
+    pub robot: Handle<Image>,
 }
 impl FromWorld for TextureAssets {
     fn from_world(world: &mut World) -> Self {
@@ -20,6 +23,9 @@ impl FromWorld for TextureAssets {
             shield: asset_server.load("WEAPON_shield_cutout_body.png"),
             zombie: asset_server.load("zombie.png"),
             knight: asset_server.load("knight.png"),
+            wizard: asset_server.load("wizard.png"),
+            elf: asset_server.load("elf.png"),
+            robot: asset_server.load("robot1.png"),
         }
     }
 }
