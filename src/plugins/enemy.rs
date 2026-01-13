@@ -83,7 +83,7 @@ impl Enemy {
 }
 
 #[derive(Component)]
-pub struct EnemySprit {
+pub struct EnemySprite {
     pub index: usize,
 }
 
@@ -94,7 +94,7 @@ pub fn follow(
     mut enemy_query: Query<(&mut Transform, &Enemy, &Children, &mut AABB), (With<Enemy>, Without<Player>)>,
     time: Res<Time>,
     mut enemy_move_timer: ResMut<MoveTimer>,
-    mut enemy_sprit_query: Query<(&mut Sprite, &mut EnemySprit), With<EnemySprit>>,
+    mut enemy_sprite_query: Query<(&mut Sprite, &mut EnemySprite), With<EnemySprite>>,
 
 ) {
     let Ok(player_transform) = player_query.single() else {
@@ -117,9 +117,9 @@ pub fn follow(
         }
 
         for &child in children.iter() {
-            if let Ok((mut sprite, mut enemy_sprit)) = enemy_sprit_query.get_mut(child) {
-                let i = (enemy_sprit.index + 1) % 9;
-                enemy_sprit.index = i;
+            if let Ok((mut sprite, mut enemy_sprite)) = enemy_sprite_query.get_mut(child) {
+                let i = (enemy_sprite.index + 1) % 9;
+                enemy_sprite.index = i;
 
                 let atlas_index = if direction.x.abs() > direction.y.abs() {
                     if direction.x > 0.0 {
@@ -194,11 +194,11 @@ pub fn spawn_enemies(
         .with_children(|parent| {
             parent.spawn((
                 spirit,
-                EnemySprit { index: 0 },
+                EnemySprite { index: 0 },
             ));
             parent.spawn((
                 Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas, index: 15 }),
-                EnemySprit { index: 0 },
+                EnemySprite { index: 0 },
             ));
         });
 }
