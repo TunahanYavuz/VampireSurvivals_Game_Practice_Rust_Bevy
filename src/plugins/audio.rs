@@ -1,5 +1,12 @@
 use bevy::prelude::*;
-use bevy::audio::{AudioSink, PlaybackMode};
+
+pub struct GameAudioPlugin;
+
+impl Plugin for GameAudioPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, load_audio_assets);
+    }
+}
 
 #[derive(Resource, Clone)]
 pub struct GameAudio {

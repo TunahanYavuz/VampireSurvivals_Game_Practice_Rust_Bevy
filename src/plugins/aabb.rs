@@ -12,11 +12,14 @@ pub struct AABB{
 }
 impl AABB {
     pub fn change_point(&mut self, vec: Vec3){
-        self.min_y = vec.y - self.height / 2.0;
-        self.max_y = vec.y + self.height / 2.0;
-        self.min_x = vec.x - self.width / 2.0;
-        self.max_x = vec.x + self.width / 2.0;
+        let width_half = self.width / 2.;
+        let height_half = self.height / 2.;
+        self.min_y = vec.y - height_half;
+        self.max_y = vec.y + height_half;
+        self.min_x = vec.x - width_half;
+        self.max_x = vec.x + width_half;
     }
+    #[allow(dead_code)]
     pub fn aabb_intersects(a: &AABB, b: &AABB) -> bool {
         !(a.min_x > b.max_x || a.max_x < b.min_x || a.min_y > b.max_y || a.max_y < b.min_y)
     }
@@ -24,9 +27,11 @@ impl AABB {
         !(self.min_x > b.max_x || self.max_x < b.min_x || self.min_y > b.max_y || self.max_y < b.min_y)
     }
     pub fn contains_point(&self, point: Vec3) -> bool {
-        point.x+5. >= self.min_x
-            && point.x-5. <= self.max_x
-            && point.y+5. >= self.min_y
-            && point.y-5. <= self.max_y
+        let width_half = self.width / 2.;
+        let height_half = self.height / 2.;
+        point.x+width_half >= self.min_x
+            && point.x-width_half <= self.max_x
+            && point.y+height_half >= self.min_y
+            && point.y-height_half <= self.max_y
     }
 }

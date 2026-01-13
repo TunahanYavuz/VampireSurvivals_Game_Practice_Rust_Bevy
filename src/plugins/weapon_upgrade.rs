@@ -1,12 +1,33 @@
 use bevy::prelude::*;
 use bevy::ui::Val::Auto;
-use rand::{rng};
+use rand::rng;
 use rand::prelude::IndexedRandom;
 use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_ragun_weapon, spawn_rocket_weapon, WeaponStats};
 use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
+
+pub struct UpgradePlugin;
+
+impl Plugin for UpgradePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<UpgradeChoices>()
+            .add_message::<LevelUpEvent>()
+            .add_message::<UpgradeSelectedEvent>()
+            .add_systems(OnEnter(GameState::UpgradeSelection), create_table_ui)
+            .add_systems(OnExit(GameState::UpgradeSelection), cleanup_upgrade_ui_on_choice)
+            .add_systems(
+                Update,
+                (
+                    show_upgrade_choices_on_level_up,
+                    handle_upgrade_input,
+                    apply_weapon_upgrade,
+                ).run_if(in_state(GameState::UpgradeSelection)),
+            );
+    }
+}
 
 /// Silah tipi - sadece tip belirteci, veri içermez
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -22,6 +43,7 @@ pub struct UpgradeOption{
     pub weapon_type: WeaponType,
     pub name: String,
     pub description: String,
+    #[allow(dead_code)]
     pub icon: Option<Handle<Image>>,
 }
 
@@ -32,6 +54,7 @@ pub struct UpgradeSelectedEvent{
 
 #[derive(Message)]
 pub struct LevelUpEvent{
+    #[allow(dead_code)]
     pub level: i32,
 }
 

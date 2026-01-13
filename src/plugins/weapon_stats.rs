@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use crate::plugins::common::GameEntity;
 use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
-use crate::plugins::weapons::{GameEntity, LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
+use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
 
 #[derive(Component)]
 pub struct WeaponStats{
@@ -33,8 +34,8 @@ pub fn spawn_weapons_for_player(
     commands: &mut Commands,
     player_entity: Entity,
     _player_pos: Vec3,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
+    _meshes: &mut Assets<Mesh>,
+    _materials: &mut Assets<ColorMaterial>,
 ){
     println!("Spawning weapons for player!");
 

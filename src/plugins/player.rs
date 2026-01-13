@@ -1,13 +1,30 @@
 use bevy::audio::{AudioPlayer, PlaybackSettings};
-use bevy::prelude::{ButtonInput, Commands, Component, Entity, KeyCode, NextState, Query, Sprite, Time, Transform, With, Without};
-use bevy_ecs::prelude::{MessageWriter, Res};
-use bevy_ecs::system::{ResMut, Single};
+use bevy::image::TextureAtlas;
+use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::{GameAudio, GameAudioEntity};
 use crate::plugins::enemy::{Collectible, Enemy, XP};
+use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
-use crate::plugins::timers::{MoveTimer};
+use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
+
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                move_player,
+                reduce_player_health,
+                collect_xp,
+                collect_xp_with_magnet,
+                magnetite_xp_to_player,
+            ).run_if(in_state(GameState::Playing)),
+        );
+    }
+}
 
 #[derive(Component)]
 pub struct Player {
@@ -139,7 +156,7 @@ pub struct XPMagnetite;
 
 pub fn collect_xp_with_magnet(
     mut commands: Commands,
-    mut xp_query: Query<Entity, With<XP>>,
+    xp_query: Query<Entity, With<XP>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ){
     if keyboard_input.just_pressed(KeyCode::KeyC){
@@ -163,3 +180,68 @@ pub fn magnetite_xp_to_player(
         xp_aabb.change_point(xp_transform.translation);
     }
 }
+
+pub fn move_player(
+    mut player_query: Query<(&mut Transform, &Player, &mut AABB, &mut Sprite), With<Player>>,
+    mut camera_query: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    atlases: Res<Atlases>,
+    enemy_move_timer: Res<MoveTimer>,
+) {
+    if !atlases.ready {
+        return;
+    }
+
+    let Ok((mut transform, player, mut aabb, mut sprite)) = player_query.single_mut() else {
+        return;
+    };
+
+    let Ok(mut camera_transform) = camera_query.single_mut() else {
+        return;
+    };
+
+    if sprite.texture_atlas.is_none() {
+        if let Some(layout_handle) = &atlases.body {
+            sprite.texture_atlas = Some(TextureAtlas {
+                layout: layout_handle.clone(),
+                index: 0,
+            });
+        }
+    }
+
+    player.move_around(
+        &mut transform,
+        &mut aabb,
+        &mut sprite,
+        &mut camera_transform,
+        &keyboard_input,
+        &time,
+        &enemy_move_timer,
+    );
+}
+
+pub fn reduce_player_health(
+    mut commands: Commands,
+    mut player_query: Query<(&mut Player, &mut AABB, Entity), With<Player>>,
+    enemy_query: Query<(&AABB, &Enemy), (With<Enemy>, Without<Player>)>,
+    mut player_health_reduce_timer: ResMut<PlayerHealthReduceTimer>,
+    time: Res<Time>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    player_health_reduce_timer.timer.tick(time.delta());
+    if !player_health_reduce_timer.timer.just_finished() {
+        return;
+    }
+
+    let Ok((mut player, aabb, entity)) = player_query.single_mut() else {
+        return;
+    };
+
+    player.take_damage(entity, &mut commands, enemy_query, &aabb);
+
+    if player.health == 0 {
+        next_state.set(GameState::GameOver);
+    }
+}
+

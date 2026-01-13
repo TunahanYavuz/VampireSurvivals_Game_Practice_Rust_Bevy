@@ -1,6 +1,17 @@
 use bevy::prelude::*;
+use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
-use crate::plugins::weapons::GameEntity;
+
+pub struct ScorePlugin;
+
+impl Plugin for ScorePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<GameScore>()
+            .add_systems(Startup, setup_score_ui)
+            .add_systems(Update, update_score_ui.run_if(in_state(GameState::Playing)));
+    }
+}
 
 #[derive(Component)]
 pub struct ScoreText;

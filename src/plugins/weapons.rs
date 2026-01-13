@@ -2,13 +2,31 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::GameAudio;
+use crate::plugins::common::GameEntity;
 use crate::plugins::enemy::Enemy;
+use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::weapon_stats::WeaponStats;
 
-// GameEntity marker
-#[derive(Component)]
-pub struct GameEntity;
+pub struct WeaponPlugin;
+
+impl Plugin for WeaponPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                fire_laser_weapons,
+                fire_rocket_weapons,
+                fire_raygun_weapons,
+                move_projectiles,
+                move_player_addicted_weapons,
+                update_raygun_rays,
+                cleanup_lifetime_over,
+                raygun_damage,
+            ).run_if(in_state(GameState::Playing)),
+        );
+    }
+}
 
 // Temel silah component'i
 #[derive(Component)]
@@ -389,7 +407,7 @@ pub fn move_player_addicted_weapons(
     time: Res<Time>,
     mut player_query: Query<(&Transform, &mut Player), (With<Player>, Without<Enemy>, Without<Projectile>, Without<PlayerAddictedWeapon>)>,
     // PlayerAddictedWeapon referansını da alıyoruz ki radius'ı okuyup görseli güncelleyebilelim
-    mut player_addicted_weapon: Query<(&mut Transform, &WeaponStats, &mut Weapon, &PlayerAddictedWeapon), With<PlayerAddictedWeapon>>,
+    mut player_addicted_weapon: Query<(&mut Transform, &WeaponStats, &mut Weapon, &PlayerAddictedWeapon, Entity), With<PlayerAddictedWeapon>>,
     mut enemies: Query<(&Transform, Entity, &mut Enemy), Without<PlayerAddictedWeapon>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -397,7 +415,7 @@ pub fn move_player_addicted_weapons(
 
 ){
     let Ok(mut player_transform) = player_query.single_mut() else { return; };
-    for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp) in player_addicted_weapon.iter_mut() {
+    for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp, _w_entity) in player_addicted_weapon.iter_mut() {
         // Pozisyonu takip et
         addicted_transform.translation = player_transform.0.translation;
         // Görsel ölçeği radius'a göre güncelle

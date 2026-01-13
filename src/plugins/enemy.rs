@@ -2,21 +2,37 @@ use std::f32::consts::PI;
 use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::color::Color;
-use bevy::image::TextureAtlas;
+use bevy::image::{TextureAtlas, TextureAtlasLayout};
 use bevy::mesh::{Mesh, Mesh2d};
-use bevy::prelude::{Children, Circle, ColorMaterial, Component, InheritedVisibility, MeshMaterial2d, Query, Resource, Sprite, Time, Timer, Transform, Vec3, With};
+use bevy::prelude::*;
 use bevy::time::TimerMode;
-use bevy_ecs::change_detection::{Res, ResMut};
-use bevy_ecs::entity::Entity;
-use bevy_ecs::prelude::{Commands, Without};
 use rand::Rng;
-use crate::Atlases;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::GameAudio;
+use crate::plugins::common::GameEntity;
+use crate::plugins::game::Atlases;
+use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
-use crate::plugins::weapons::GameEntity;
+
+pub struct EnemyPlugin;
+
+impl Plugin for EnemyPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<EnemySpawnTimer>()
+            .init_resource::<EnemyPowerUpTimer>()
+            .add_systems(
+                Update,
+                (
+                    spawn_enemies,
+                    follow,
+                    enemy_collision_with_enemy,
+                ).run_if(in_state(GameState::Playing)),
+            );
+    }
+}
 
 #[derive(Component)]
 pub struct Enemy {
@@ -116,7 +132,7 @@ pub fn follow(
             continue;
         }
 
-        for &child in children.iter() {
+        for child in children.iter() {
             if let Ok((mut sprite, mut enemy_sprit)) = enemy_sprit_query.get_mut(child) {
                 let i = (enemy_sprit.index + 1) % 9;
                 enemy_sprit.index = i;
@@ -148,6 +164,7 @@ pub fn spawn_enemies(
     mut spawn_timer: ResMut<EnemySpawnTimer>,
     player_query: Query<&Transform, With<Player>>,
     atlases: Res<Atlases>,
+    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     textures: Res<TextureAssets>,
     mut enemy_power: ResMut<EnemyPowerUpTimer>
 ) {
@@ -173,34 +190,44 @@ pub fn spawn_enemies(
 
     let body_atlas = atlases.zombie.as_ref().unwrap().clone();
     let shield_atlas = atlases.shield.as_ref().unwrap().clone();
+    if let Some((body_lay, _shield_lay)) = atlas_layouts.get(&body_atlas).zip(atlas_layouts.get(&shield_atlas)) {
+        if let Some(body_rect) = body_lay.textures.get(0) {
+            let b_width = body_rect.width() as f32 /2. - 10.;
+            let b_height = body_rect.height() as f32 /2. - 10.;
 
-    let spirit = match level {
-        1 => Sprite::from_atlas_image(textures.zombie.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-        2 => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-        _ => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-    };
 
-    commands
-        .spawn((
-            GameEntity,
-            Transform::from_xyz(x, y, 0.0),
-            Enemy {
-                health: 100 * level, damage: 1 * level,
-                speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32),
-                xp_drop: 20 * level},
-            InheritedVisibility::default(),
-            AABB { max_x: x + 25., max_y: y + 25., min_x: x - 25., min_y: y - 25., width: 50., height: 50. },
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                spirit,
-                EnemySprit { index: 0 },
-            ));
-            parent.spawn((
-                Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas, index: 15 }),
-                EnemySprit { index: 0 },
-            ));
-        });
+            let spirit = match level {
+                1 => Sprite::from_atlas_image(textures.zombie.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+                2 => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+                _ => Sprite::from_atlas_image(textures.knight.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+            };
+
+
+            commands
+                .spawn((
+                    GameEntity,
+                    Transform::from_xyz(x, y, 0.0),
+                    Enemy {
+                        health: 100 * level, damage: 1 * level,
+                        speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32),
+                        xp_drop: 20 * level},
+                    InheritedVisibility::default(),
+                    AABB { max_x: x + b_width, max_y: y + b_height, min_x: x - b_width, min_y: y - b_height, width: b_width * 2., height: b_height * 2. },
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        spirit,
+                        EnemySprit { index: 0 },
+                    ));
+                    parent.spawn((
+                        Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas, index: 15 }),
+                        EnemySprit { index: 0 },
+                    ));
+                });
+        }
+    }
+
+
 }
 
 pub fn enemy_collision_with_enemy(

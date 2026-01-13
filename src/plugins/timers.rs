@@ -1,5 +1,15 @@
 use bevy::prelude::*;
 
+pub struct TimerPlugin;
+
+impl Plugin for TimerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<MoveTimer>()
+            .init_resource::<PlayerHealthReduceTimer>();
+    }
+}
+
 #[derive(Resource)]
 pub struct EnemySpawnTimer {
     pub timer: Timer,

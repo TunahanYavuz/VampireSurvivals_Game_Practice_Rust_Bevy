@@ -1,5 +1,16 @@
 use bevy::prelude::*;
 use std::collections::HashSet;
+use crate::plugins::game_state::GameState;
+
+pub struct GroundPlugin;
+
+impl Plugin for GroundPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_systems(Startup, setup_ground)
+            .add_systems(Update, update_ground_chunks.run_if(in_state(GameState::Playing)));
+    }
+}
 
 #[derive(Component)]
 pub struct Ground;
