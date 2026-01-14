@@ -1,13 +1,16 @@
 use bevy::camera::primitives::Aabb;
+use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
+use bevy::render::render_resource::Texture;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::GameAudio;
-use crate::plugins::common::{contains_point, GameEntity};
+use crate::plugins::common::{aabb_intersects, contains_point, GameEntity};
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
-use crate::plugins::weapon_stats::WeaponStats;
+use crate::plugins::texture_handling::TextureAssets;
+use crate::plugins::weapon_stats::{SwordWeapon, WeaponStats};
 
 pub struct WeaponPlugin;
 
@@ -16,6 +19,7 @@ impl Plugin for WeaponPlugin {
         app.add_systems(
             Update,
             (
+                move_swords,
                 fire_laser_weapons,
                 fire_rocket_weapons,
                 fire_raygun_weapons,
@@ -24,6 +28,7 @@ impl Plugin for WeaponPlugin {
                 update_raygun_rays,
                 cleanup_lifetime_over,
                 raygun_damage,
+                throw_swords,
             ).run_if(in_state(GameState::Playing)),
         );
     }
@@ -399,16 +404,10 @@ pub fn fire_rocket_weapons(
 
 
 pub fn move_player_addicted_weapons(
-    mut commands: Commands,
     time: Res<Time>,
     mut player_query: Query<(&Transform, &mut Player), (With<Player>, Without<Enemy>, Without<Projectile>, Without<PlayerAddictedWeapon>)>,
-    // PlayerAddictedWeapon referansını da alıyoruz ki radius'ı okuyup görseli güncelleyebilelim
     mut player_addicted_weapon: Query<(&mut Transform, &WeaponStats, &mut Weapon, &PlayerAddictedWeapon, Entity), With<PlayerAddictedWeapon>>,
     mut enemies: Query<(&Transform, Entity, &mut Enemy), Without<PlayerAddictedWeapon>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    audio: Res<GameAudio>
-
 ){
     let Ok(mut player_transform) = player_query.single_mut() else { return; };
     for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp, _w_entity) in player_addicted_weapon.iter_mut() {
@@ -522,6 +521,101 @@ pub fn move_projectiles(
             }
 
 
+    }
+}
+
+#[derive(Component)]
+pub struct SwordProjectile {
+    pub direction: Vec2,
+    pub speed: f32,
+    pub damage: f32,
+    pub lifetime: Timer,
+    pub angle: f32,
+    pub hit_enemies: Vec<Entity>,
+}
+
+pub fn throw_swords(
+    mut commands: Commands,
+    time: Res<Time>,
+    player: Single<(&Player, &Transform), (With<Player>, Without<SwordWeapon>)>,
+    mut sword: Query<( &mut Weapon), (With<SwordWeapon>, Without<Player>)>,
+    window: Single<&Window>,
+    camera: Query<(&Camera, &GlobalTransform)>,
+    textures: Res<TextureAssets>,
+
+){
+    let Ok((camera, camera_transform)) = camera.single() else { return; };
+
+    if let Some(cursor_position) = window.cursor_position() {
+        if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+            let direction: Vec2 = (world_pos - player.1.translation.xy()).normalize();
+
+            for (mut weapon) in sword.iter_mut() {
+                weapon.fire_timer.tick(time.delta());
+                if !weapon.fire_timer.just_finished() {
+                    continue;
+                }
+                commands.spawn((
+                    GameEntity,
+                    SwordProjectile{
+                        angle: 0.0,
+                        direction: direction,
+                        speed: weapon.speed,
+                        damage: weapon.damage,
+                        hit_enemies: Vec::new(),
+                        lifetime: Timer::from_seconds(2.0, TimerMode::Once),
+                    },
+                    Aabb{
+                        center: player.1.translation.to_vec3a(),
+                        half_extents: Vec3A::new(32.0,32.0, 0.0),
+                    },
+                    NoAutoAabb,
+                    NoFrustumCulling,
+                    Sprite{
+                        image: textures.sword.clone(),
+                        ..default()
+                    },
+                    Transform::from_translation(player.1.translation),
+                ));
+
+
+            }
+        }
+    }
+}
+
+pub fn move_swords(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut swords: Query<(Entity, &mut Transform, &mut SwordProjectile, &mut Aabb), With<SwordProjectile>>,
+    mut enemies: Query<(Entity, &mut Enemy, &mut Aabb, &mut Transform), Without<SwordProjectile>>,
+){
+    for (sword_entity, mut sword_transform, mut sword, mut sword_aabb) in swords.iter_mut() {
+        // Hareket
+        sword_transform.translation += sword.direction.extend(0.0) * sword.speed * time.delta_secs();
+
+        // Döndürme efekti
+        sword.angle += 20.0 * time.delta_secs();
+        sword_transform.rotation = Quat::from_rotation_z(sword.angle);
+
+        // Ömür kontrolü
+        sword.lifetime.tick(time.delta());
+        if sword.lifetime.just_finished() {
+            commands.entity(sword_entity).despawn();
+        }
+
+        sword_aabb.center = sword_transform.translation.to_vec3a();
+        for ( enemy_entity,mut enemy, mut aabb, mut transform) in enemies.iter_mut() {
+            if aabb_intersects(&aabb, &sword_aabb) && !sword.hit_enemies.contains(&enemy_entity) {
+                // Hasar uygula
+                enemy.health = enemy.health.saturating_sub(sword.damage as i32);
+
+                transform.translation += sword.direction.extend(0.0) * 10.0;
+                aabb.center = transform.translation.to_vec3a();
+                sword.hit_enemies.push(enemy_entity);
+                break;
+            }
+        }
     }
 }
 

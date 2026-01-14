@@ -125,8 +125,8 @@ pub fn spawn_flame_weapon(commands: &mut Commands, player_entity: Entity, _playe
     let base_range = 75.0;
     commands.spawn((
         GameEntity,
-        Mesh2d(meshes.add(Circle::new(1.0))),
-        MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(1.0, 0.5, 0.0, 0.3)))),
+        Mesh2d(meshes.add(Annulus::new(0.3, 1.0))),
+        MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(0.89, 0.35, 0.13, 0.75)))),
         PlayerAddictedWeapon{ radius: base_range },
         Weapon {
             fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
@@ -147,7 +147,37 @@ pub fn spawn_flame_weapon(commands: &mut Commands, player_entity: Entity, _playe
         Transform {
             translation: _player_pos,
             scale: Vec3::splat(base_range),
-            ..Default::default()
+            ..default()
+        },
+    ));
+}
+
+#[derive(Component)]
+pub struct Throwable;
+
+#[derive(Component)]
+pub struct SwordWeapon;
+
+pub fn spawn_throwing_weapon(commands: &mut Commands, player_entity: Entity){
+    commands.spawn((
+        GameEntity,
+        Throwable,
+        SwordWeapon,
+        Weapon {
+            owner: player_entity,
+            damage: 75.0,
+            fire_timer: Timer::from_seconds(0.5, TimerMode::Repeating),
+            speed: 150.0,
+        },
+        WeaponLevel {
+            level: 1,
+            weapon_type: WeaponType::Sword,
+        },
+        WeaponStats {
+            base_damage: 75.0,
+            base_fire_rate: 0.5,
+            base_speed: 150.0,
+            base_range: 0.0,
         },
     ));
 }

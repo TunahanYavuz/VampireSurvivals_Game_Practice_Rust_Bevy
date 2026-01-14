@@ -49,15 +49,6 @@ pub struct EnemyPowerUpTimer {
     pub level: i32,
 }
 
-#[derive(Component)]
-#[derive(Debug)]
-pub struct XP{
-    pub amount: i32,
-}
-
-#[derive(Component)]
-pub struct Collectible;
-
 impl Default for EnemyPowerUpTimer {
     fn default() -> Self {
         Self {
@@ -66,6 +57,15 @@ impl Default for EnemyPowerUpTimer {
         }
     }
 }
+
+#[derive(Component)]
+pub struct XP{
+    pub amount: i32,
+}
+
+#[derive(Component)]
+pub struct Collectible;
+
 
 #[derive(Component)]
 pub struct EnemySprit {

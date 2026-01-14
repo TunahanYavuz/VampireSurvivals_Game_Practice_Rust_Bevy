@@ -5,7 +5,7 @@ use rand::prelude::IndexedRandom;
 use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
-use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_raygun_weapon, spawn_rocket_weapon, WeaponStats};
+use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_raygun_weapon, spawn_rocket_weapon, spawn_throwing_weapon, SwordWeapon, WeaponStats};
 use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
 
 pub struct UpgradePlugin;
@@ -36,6 +36,7 @@ pub enum WeaponType {
     Rocket,
     RayGun,
     Addicted,
+    Sword,
 }
 
 #[derive(Component,Clone)]
@@ -97,6 +98,12 @@ impl UpgradeChoices {
                 description: "Hasar +3, Hedef +1".to_string(),
                 icon: None,
             },
+            UpgradeOption {
+                weapon_type: WeaponType::Sword,
+                name: "Kılıç Silahı Güçlendir".to_string(),
+                description: "Hasar +5, Adet +2".to_string(),
+                icon: None,
+            },
         ];
         let mut rng = rng();
         let selected: Vec<_> = all_options.choose_multiple(&mut rng, 3).cloned().collect();
@@ -115,7 +122,6 @@ pub struct UpgradeButton(pub WeaponType);
 pub fn show_upgrade_choices_on_level_up(
     mut level_up_events: MessageReader<LevelUpEvent>,
     mut upgrade_choices: ResMut<UpgradeChoices>,
-    mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     table: Query<Entity, With<WeaponTable>>,
     asset_server: Res<AssetServer>,
@@ -180,6 +186,7 @@ pub fn apply_weapon_upgrade(
         Option<&mut RocketWeapon>,
         Option<&mut PlayerAddictedWeapon>,
         Option<&mut RayGunWeapon>,
+        Option<&mut SwordWeapon>,
     )>,
     mut next_state: ResMut<NextState<GameState>>,
     mut upgrade_choices: ResMut<UpgradeChoices>,
@@ -201,12 +208,13 @@ pub fn apply_weapon_upgrade(
                 WeaponType::Rocket => spawn_rocket_weapon(&mut commands, player_entity.0),
                 WeaponType::RayGun => spawn_raygun_weapon(&mut commands, player_entity.0),
                 WeaponType::Addicted => spawn_flame_weapon(&mut commands, player_entity.0, player_entity.1.translation, &mut meshes, &mut materials ),
+                WeaponType::Sword => spawn_throwing_weapon(&mut commands, player_entity.0),
             }
             next_state.set(GameState::Playing);
             continue;
         }
 
-        for (mut weapon, mut level, stats, laser, rocket, addicted, raygun) in weapons.iter_mut() {
+        for (mut weapon, mut level, stats, laser, rocket, addicted, raygun, sword) in weapons.iter_mut() {
             // Silah tipini kontrol et
             if level.weapon_type != event.weapon_type {
                 continue;
@@ -246,6 +254,10 @@ pub fn apply_weapon_upgrade(
                 WeaponType::RayGun => {
                     if let Some(mut raygun) = raygun {
                         raygun.pierce_count += 1;
+                    }
+                },
+                WeaponType::Sword => {
+                    if let Some(mut sword) = sword {
                     }
                 }
             }
