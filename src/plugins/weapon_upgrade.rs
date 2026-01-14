@@ -5,7 +5,7 @@ use rand::prelude::IndexedRandom;
 use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
-use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_ragun_weapon, spawn_rocket_weapon, WeaponStats};
+use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_raygun_weapon, spawn_rocket_weapon, WeaponStats};
 use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
 
 pub struct UpgradePlugin;
@@ -124,8 +124,6 @@ pub fn show_upgrade_choices_on_level_up(
     for _ in level_up_events.read() {
         let options = upgrade_choices.generate_random_options();
 
-        next_state.set(GameState::UpgradeSelection);
-
         let Ok(table_entity) = table.single() else {
             commands.spawn((WeaponTable, Node::default()));
             continue;
@@ -201,7 +199,7 @@ pub fn apply_weapon_upgrade(
             match event.weapon_type {
                 WeaponType::Laser => spawn_lazer_weapon(&mut commands, player_entity.0),
                 WeaponType::Rocket => spawn_rocket_weapon(&mut commands, player_entity.0),
-                WeaponType::RayGun => spawn_ragun_weapon(&mut commands, player_entity.0),
+                WeaponType::RayGun => spawn_raygun_weapon(&mut commands, player_entity.0),
                 WeaponType::Addicted => spawn_flame_weapon(&mut commands, player_entity.0, player_entity.1.translation, &mut meshes, &mut materials ),
             }
             next_state.set(GameState::Playing);

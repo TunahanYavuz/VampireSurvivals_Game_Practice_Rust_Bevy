@@ -1,3 +1,5 @@
+use bevy::camera::primitives::Aabb;
+use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::common::GameEntity;
@@ -97,14 +99,20 @@ fn prepare_atlases_and_spawn(
             movement: 200.,
             ..default()
         },
-        AABB {
-            max_x: 20.,
-            max_y: 20.,
-            min_x: -20.,
-            min_y: -20.,
-            width: 40.,
-            height: 40.,
+        Aabb{
+            center: Vec3::ZERO.into(),
+            half_extents: Vec3::new(20., 20., 0.0).into(),
         },
+        NoAutoAabb,
+        NoFrustumCulling,
+        // AABB {
+        //     max_x: 20.,
+        //     max_y: 20.,
+        //     min_x: -20.,
+        //     min_y: -20.,
+        //     width: 40.,
+        //     height: 40.,
+        // },
     )).id();
     spawn_weapons_for_player(&mut commands, player_entity, Vec3::ZERO, &mut meshes, &mut materials);
     next_state.set(GameState::Playing);

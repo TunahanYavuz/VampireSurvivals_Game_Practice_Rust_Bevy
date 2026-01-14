@@ -1,15 +1,16 @@
 use std::f32::consts::PI;
-use bevy::asset::Assets;
+use bevy::asset::{Assets,};
 use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::camera::primitives::Aabb;
+use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::color::Color;
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
 use bevy::mesh::{Mesh, Mesh2d};
 use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
-use crate::plugins::aabb::AABB;
 use crate::plugins::audio::GameAudio;
-use crate::plugins::common::GameEntity;
+use crate::plugins::common::{aabb_intersects, GameEntity};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
@@ -27,6 +28,7 @@ impl Plugin for EnemyPlugin {
                 Update,
                 (
                     spawn_enemies,
+                    despawn_enemies,
                     follow,
                     enemy_collision_with_enemy,
                 ).run_if(in_state(GameState::Playing)),
@@ -48,6 +50,7 @@ pub struct EnemyPowerUpTimer {
 }
 
 #[derive(Component)]
+#[derive(Debug)]
 pub struct XP{
     pub amount: i32,
 }
@@ -64,50 +67,63 @@ impl Default for EnemyPowerUpTimer {
     }
 }
 
-impl Enemy {
-    pub fn despawn(&mut self, 
-                   entity: Entity, 
-                   translation: &Vec3, 
-                   meshes: &mut Assets<Mesh>, 
-                   mesh_material: &mut Assets<ColorMaterial>, 
-                   commands: &mut Commands,
-                   audio: &GameAudio,
-    ) {
-        commands.spawn((
-            GameEntity,
-            Collectible,
-            XP{ amount: self.xp_drop },
-            Transform::from_translation(*translation),
-            AABB{
-                max_x: translation.x + 20.,
-                max_y: translation.y + 20.,
-                min_x: translation.x - 20.,
-                min_y: translation.y - 20.,
-                width: 20.,
-                height: 20.,
-            },
-            Mesh2d(meshes.add(Circle::new(5.0))),
-            MeshMaterial2d(mesh_material.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
-            ));
-        commands.spawn((
-            AudioPlayer(audio.enemy_hit.clone()),
-            PlaybackSettings::DESPAWN,
-            ));
-        
-        commands.entity(entity).try_despawn();
-    }
-}
-
 #[derive(Component)]
 pub struct EnemySprit {
     pub index: usize,
 }
 
 
+fn despawn_enemies(
+    mut commands: Commands,
+    enemy_query: Query<(Entity, &Enemy, &Transform), With<Enemy>>,
+    mut player: Single<&mut Player>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    audio: Res<GameAudio>,
+) {
+
+    for (enemy_entity, enemy, transform) in enemy_query.iter() {
+        if enemy.health > 0 {
+            continue;
+        }
+
+        commands.spawn((
+            GameEntity,
+            Collectible,
+            XP{ amount: enemy.xp_drop },
+            Transform::from_translation(transform.translation),
+            // AABB{
+            //     max_x: translation.x + 20.,
+            //     max_y: translation.y + 20.,
+            //     min_x: translation.x - 20.,
+            //     min_y: translation.y - 20.,
+            //     width: 20.,
+            //     height: 20.,
+            // },
+            Aabb{
+                center: transform.translation.to_vec3a(),
+                half_extents: Vec3A::new(40.0, 40.0, 1.0),
+            },
+            NoAutoAabb,
+            NoFrustumCulling,
+            Mesh2d(meshes.add(Circle::new(5.0))),
+            MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
+        ));
+        commands.spawn((
+            AudioPlayer(audio.enemy_hit.clone()),
+            PlaybackSettings::DESPAWN,
+        ));
+
+        commands.entity(enemy_entity).try_despawn();
+        player.score += 1;
+
+    }
+}
+
 
 pub fn follow(
     player_query: Query<&Transform, With<Player>>,
-    mut enemy_query: Query<(&mut Transform, &Enemy, &Children, &mut AABB), (With<Enemy>, Without<Player>)>,
+    mut enemy_query: Query<(&mut Transform, &Enemy, &mut Aabb, &Children), (With<Enemy>, Without<Player>)>,
     time: Res<Time>,
     mut enemy_move_timer: ResMut<MoveTimer>,
     mut enemy_sprit_query: Query<(&mut Sprite, &mut EnemySprit), With<EnemySprit>>,
@@ -119,15 +135,14 @@ pub fn follow(
     let player_position = player_transform.translation;
 
     enemy_move_timer.timer.tick(time.delta());
-    for (mut enemy_position, enemy, children, mut aabb) in enemy_query.iter_mut(){
+    for (mut enemy_position, enemy, mut aabb, children) in enemy_query.iter_mut(){
         let diff: Vec3  = player_position - enemy_position.translation;
         if diff.length_squared() < 1e-6 {
             continue;
         }
         let direction = diff.normalize();
         enemy_position.translation += direction * enemy.speed * time.delta_secs();
-        aabb.change_point(enemy_position.translation);
-
+        aabb.center = enemy_position.translation.to_vec3a();
         if !enemy_move_timer.timer.just_finished() {
             continue;
         }
@@ -166,7 +181,7 @@ pub fn spawn_enemies(
     atlases: Res<Atlases>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     textures: Res<TextureAssets>,
-    mut enemy_power: ResMut<EnemyPowerUpTimer>
+    mut enemy_power: ResMut<EnemyPowerUpTimer>,
 ) {
     enemy_power.timer.tick(time.delta());
     if enemy_power.timer.just_finished() {
@@ -178,7 +193,6 @@ pub fn spawn_enemies(
     if !spawn_timer.timer.just_finished() { return; }
     if !atlases.ready { return; }
 
-    // Query'den güvenli bir şekilde al
     let Ok(player_transform) = player_query.single() else {
         return;
     };
@@ -212,13 +226,19 @@ pub fn spawn_enemies(
                         speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32),
                         xp_drop: 20 * level},
                     InheritedVisibility::default(),
-                    AABB { max_x: x + b_width, max_y: y + b_height, min_x: x - b_width, min_y: y - b_height, width: b_width * 2., height: b_height * 2. },
+                    Aabb{
+                        center: Vec3::new(x, y, 0.0).into(),
+                        half_extents: Vec3::new(b_width, b_height, 0.0).into(),
+                    },
+                    NoAutoAabb,
+                    //AABB { max_x: x + b_width, max_y: y + b_height, min_x: x - b_width, min_y: y - b_height, width: b_width * 2., height: b_height * 2. },
                 ))
                 .with_children(|parent| {
                     parent.spawn((
                         spirit,
                         EnemySprit { index: 0 },
                     ));
+
                     parent.spawn((
                         Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas, index: 15 }),
                         EnemySprit { index: 0 },
@@ -231,12 +251,12 @@ pub fn spawn_enemies(
 }
 
 pub fn enemy_collision_with_enemy(
-    mut enemy_query: Query<(&mut Transform, &AABB), With<Enemy>>,
+    mut enemy_query: Query<(&mut Transform, &Aabb), With<Enemy>>,
 ){
     let mut combinations = enemy_query.iter_combinations_mut();
 
     while let Some([(mut transform1, aabb1), (mut transform2, aabb2)]) = combinations.fetch_next() {
-        if aabb1.self_aabb_intersects(aabb2) {
+        if aabb_intersects(aabb1, aabb2) {
             let direction = (transform1.translation - transform2.translation).normalize();
             let push_strength = 2.0;
 

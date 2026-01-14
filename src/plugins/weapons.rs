@@ -1,8 +1,9 @@
+use bevy::camera::primitives::Aabb;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::GameAudio;
-use crate::plugins::common::GameEntity;
+use crate::plugins::common::{contains_point, GameEntity};
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
@@ -259,9 +260,6 @@ pub fn raygun_damage(
     time: Res<Time>,
     mut commands: Commands,
     mut player: Query<&mut Player, (With<Player>, Without<Enemy>)>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    audio: Res<GameAudio>,
     mut raygun_weapons: Query<&mut RayGunWeapon, With<RayGunWeapon>>
 ){
     let Ok(mut player) = player.single_mut() else { return; };
@@ -287,8 +285,6 @@ pub fn raygun_damage(
         enemy.health = enemy.health.saturating_sub(raygun.damage as i32);
 
         if enemy.health <= 0 {
-            enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
-            player.score += 1;
             dead_enemies.push(enemy_entity);
         }
     }
@@ -432,10 +428,6 @@ pub fn move_player_addicted_weapons(
 
             if dist <= weapon_radius {
                 enemy.health = enemy.health.saturating_sub(weapon.damage as i32);
-                if enemy.health <= 0 {
-                    player_transform.1.score += 1;
-                    enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
-                }
             }
         }
     }
@@ -448,7 +440,7 @@ pub fn move_projectiles(
     mut commands: Commands,
     time: Res<Time>,
     mut projectiles: Query<(Entity, &mut Transform, &mut Projectile), With<Projectile>>,
-    mut enemies: Query<(Entity, &mut Transform, &mut Enemy, &mut AABB), Without<Projectile>>,
+    mut enemies: Query<(&mut Transform, &mut Enemy, &mut Aabb), Without<Projectile>>,
     mut player: Single<&mut Player>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -470,20 +462,16 @@ pub fn move_projectiles(
 
             match &projectile.kind {
                 ProjectileKind::Laser { .. } => {
-                    for (enemy_entity, mut enemy_transform, mut enemy, mut enemy_aabb) in enemies.iter_mut() {
-                        if enemy_aabb.contains_point(proj_transform.translation) {
+                    for ( mut enemy_transform, mut enemy, enemy_aabb) in enemies.iter_mut() {
+                        if contains_point(&enemy_aabb, proj_transform.translation) {
                             // Knockback
                             enemy_transform.translation += projectile.direction * 10.;
-                            enemy_aabb.change_point(enemy_transform.translation);
                             // Hasar
                             enemy.health = enemy.health.saturating_sub(projectile.damage as i32);
                             // Mermi yok et
                             commands.entity(proj_entity).try_despawn();
                             // Düşman öldüyse
-                            if enemy.health <= 0 {
-                                enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
-                                player.score += 1;
-                            }
+
                             break;
                         }
                     }
@@ -492,8 +480,8 @@ pub fn move_projectiles(
                     // Önce roketin herhangi bir düşmana çarpıp çarpmadığını kontrol et
                     let mut explosion_pos: Option<Vec3> = None;
 
-                    for (_enemy_entity, _enemy_transform, _enemy, enemy_aabb) in enemies.iter() {
-                        if enemy_aabb.contains_point(proj_transform.translation) {
+                    for (_enemy_transform, _enemy, enemy_aabb) in enemies.iter() {
+                        if contains_point(enemy_aabb, proj_transform.translation) {
                             // Roket bir düşmana çarptı, patlama konumunu kaydet
                             explosion_pos = Some(proj_transform.translation);
                             break;
@@ -514,20 +502,16 @@ pub fn move_projectiles(
                         ));
 
                         // Tüm düşmanları tekrar tara ve patlama yarıçapındakilere hasar ver
-                        for (enemy_entity, mut enemy_transform, mut enemy, mut enemy_aabb) in enemies.iter_mut() {
+                        for (mut enemy_transform, mut enemy, enemy_aabb) in enemies.iter_mut() {
                             let dist = enemy_transform.translation.distance(explosion_center);
                             if dist <= *explosion_radius {
                                 // Knockback - patlamadan uzağa it
                                 let knockback_dir = (enemy_transform.translation - explosion_center).normalize_or_zero();
                                 enemy_transform.translation += knockback_dir * 20.;
-                                enemy_aabb.change_point(enemy_transform.translation);
 
                                 // Hasar
                                 enemy.health = enemy.health.saturating_sub(projectile.damage as i32);
-                                if enemy.health <= 0 {
-                                    enemy.despawn(enemy_entity, &enemy_transform.translation, &mut *meshes, &mut *materials, &mut commands, &audio);
-                                    player.score += 1;
-                                }
+
                             }
                         }
 

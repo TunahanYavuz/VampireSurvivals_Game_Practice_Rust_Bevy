@@ -98,7 +98,7 @@ pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity){
     ));
 }
 
-pub fn spawn_ragun_weapon(commands: &mut Commands, player_entity: Entity){
+pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity){
     commands.spawn((
         GameEntity,
         Weapon {
