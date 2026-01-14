@@ -217,7 +217,7 @@ pub fn spawn_enemies(
             };
 
 
-            commands
+        commands
                 .spawn((
                     GameEntity,
                     Transform::from_xyz(x, y, 0.0),
