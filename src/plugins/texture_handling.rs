@@ -1,8 +1,7 @@
 use bevy::asset::Handle;
 use bevy::image::Image;
-use bevy::prelude::{AssetServer, Resource};
-use bevy_ecs::prelude::World;
-use bevy_ecs::world::FromWorld;
+use bevy::prelude::{AssetServer, FromWorld, Resource, World};
+
 
 #[derive(Resource)]
 pub struct TextureAssets {

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ecs::relationship::RelatedSpawnerCommands;
+use bevy::ecs::relationship::RelatedSpawnerCommands;
 use crate::plugins::game_state::GameState;
 
 pub struct MainMenuPlugin;
