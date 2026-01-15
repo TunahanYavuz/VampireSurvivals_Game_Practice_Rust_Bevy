@@ -1,10 +1,12 @@
-use bevy::prelude::*;
 use crate::plugins::common::GameEntity;
 use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
-use crate::plugins::weapons::{LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon};
+use crate::plugins::weapons::{
+    LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon,
+};
+use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct WeaponStats{
+pub struct WeaponStats {
     pub base_damage: f32,
     pub base_fire_rate: f32,
     pub base_speed: f32,
@@ -12,21 +14,21 @@ pub struct WeaponStats{
 }
 
 impl WeaponStats {
-    pub fn calculate_damage(&self, level:i32) -> f32{
+    pub fn calculate_damage(&self, level: i32) -> f32 {
         match level {
             1 => self.base_damage,
-            _ => self.base_damage + ((level -1) as f32 * 10.0)
+            _ => self.base_damage + ((level - 1) as f32 * 10.0),
         }
     }
-    pub fn calculate_fire_rate(&self, level:i32) -> f32{
-        let bonus = (level-1) as f32 * 0.1;
+    pub fn calculate_fire_rate(&self, level: i32) -> f32 {
+        let bonus = (level - 1) as f32 * 0.1;
         (self.base_fire_rate * (1.0 - bonus)).max(0.05)
     }
-    pub fn calculate_speed(&self, level:i32) -> f32{
+    pub fn calculate_speed(&self, level: i32) -> f32 {
         self.base_speed + ((level - 1) as f32 * 25.0)
     }
-    pub fn calculate_range(&self, level:i32) -> f32{
-        self.base_range * (1.0 + (level -1) as f32 * 0.15)
+    pub fn calculate_range(&self, level: i32) -> f32 {
+        self.base_range * (1.0 + (level - 1) as f32 * 0.15)
     }
 }
 
@@ -36,7 +38,7 @@ pub fn spawn_weapons_for_player(
     _player_pos: Vec3,
     _meshes: &mut Assets<Mesh>,
     _materials: &mut Assets<ColorMaterial>,
-){
+) {
     println!("Spawning weapons for player!");
 
     // Lazer silahı
@@ -51,16 +53,18 @@ pub fn spawn_weapons_for_player(
     //spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials);
 }
 
-pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity){
+pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity) {
     commands.spawn((
         GameEntity,
         Weapon {
             owner: player_entity,
             damage: 50.0,
             fire_timer: Timer::from_seconds(0.3, TimerMode::Repeating),
-            speed: 200.0
+            speed: 200.0,
         },
-        LaserWeapon { color: Color::srgb(0.0, 0.5, 0.0) },
+        LaserWeapon {
+            color: Color::srgb(0.0, 0.5, 0.0),
+        },
         WeaponLevel {
             level: 1,
             weapon_type: WeaponType::Laser,
@@ -74,7 +78,7 @@ pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity){
     ));
 }
 
-pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity){
+pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity) {
     let rocket_base_range = 100.0;
     commands.spawn((
         GameEntity,
@@ -84,7 +88,9 @@ pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity){
             fire_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
             speed: 200.0,
         },
-        RocketWeapon { explosion_radius: rocket_base_range },
+        RocketWeapon {
+            explosion_radius: rocket_base_range,
+        },
         WeaponLevel {
             level: 1,
             weapon_type: WeaponType::Rocket,
@@ -98,7 +104,7 @@ pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity){
     ));
 }
 
-pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity){
+pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity) {
     commands.spawn((
         GameEntity,
         Weapon {
@@ -121,13 +127,19 @@ pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity){
     ));
 }
 
-pub fn spawn_flame_weapon(commands: &mut Commands, player_entity: Entity, _player_pos: Vec3, meshes: &mut Assets<Mesh>, materials: &mut Assets<ColorMaterial>){
+pub fn spawn_flame_weapon(
+    commands: &mut Commands,
+    player_entity: Entity,
+    _player_pos: Vec3,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+) {
     let base_range = 75.0;
     commands.spawn((
         GameEntity,
         Mesh2d(meshes.add(Annulus::new(0.3, 1.0))),
         MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(0.89, 0.35, 0.13, 0.75)))),
-        PlayerAddictedWeapon{ radius: base_range },
+        PlayerAddictedWeapon { radius: base_range },
         Weapon {
             fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
             damage: 5.0,
@@ -156,13 +168,17 @@ pub fn spawn_flame_weapon(commands: &mut Commands, player_entity: Entity, _playe
 pub struct Throwable;
 
 #[derive(Component)]
-pub struct SwordWeapon;
+pub struct SwordWeapon {
+    pub last_direction: Vec3,
+}
 
-pub fn spawn_throwing_weapon(commands: &mut Commands, player_entity: Entity){
+pub fn spawn_throwing_weapon(commands: &mut Commands, player_entity: Entity) {
     commands.spawn((
         GameEntity,
         Throwable,
-        SwordWeapon,
+        SwordWeapon {
+            last_direction: Vec3::X,
+        },
         Weapon {
             owner: player_entity,
             damage: 75.0,

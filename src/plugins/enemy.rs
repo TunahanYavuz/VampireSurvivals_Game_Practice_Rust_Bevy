@@ -1,5 +1,11 @@
-use std::f32::consts::PI;
-use bevy::asset::{Assets,};
+use crate::plugins::audio::GameAudio;
+use crate::plugins::common::{GameEntity, aabb_intersects};
+use crate::plugins::game::Atlases;
+use crate::plugins::game_state::GameState;
+use crate::plugins::player::Player;
+use crate::plugins::texture_handling::TextureAssets;
+use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
+use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
@@ -9,20 +15,13 @@ use bevy::mesh::{Mesh, Mesh2d};
 use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
-use crate::plugins::audio::GameAudio;
-use crate::plugins::common::{aabb_intersects, GameEntity};
-use crate::plugins::game::Atlases;
-use crate::plugins::game_state::GameState;
-use crate::plugins::player::Player;
-use crate::plugins::texture_handling::TextureAssets;
-use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
+use std::f32::consts::PI;
 
 pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<EnemySpawnTimer>()
+        app.init_resource::<EnemySpawnTimer>()
             .init_resource::<EnemyPowerUpTimer>()
             .add_systems(
                 Update,
@@ -31,7 +30,8 @@ impl Plugin for EnemyPlugin {
                     despawn_enemies,
                     follow,
                     enemy_collision_with_enemy,
-                ).run_if(in_state(GameState::Playing)),
+                )
+                    .run_if(in_state(GameState::Playing)),
             );
     }
 }
@@ -59,19 +59,17 @@ impl Default for EnemyPowerUpTimer {
 }
 
 #[derive(Component)]
-pub struct XP{
+pub struct XP {
     pub amount: i32,
 }
 
 #[derive(Component)]
 pub struct Collectible;
 
-
 #[derive(Component)]
 pub struct EnemySprit {
     pub index: usize,
 }
-
 
 fn despawn_enemies(
     mut commands: Commands,
@@ -81,7 +79,6 @@ fn despawn_enemies(
     mut materials: ResMut<Assets<ColorMaterial>>,
     audio: Res<GameAudio>,
 ) {
-
     for (enemy_entity, enemy, transform) in enemy_query.iter() {
         if enemy.health > 0 {
             continue;
@@ -90,7 +87,9 @@ fn despawn_enemies(
         commands.spawn((
             GameEntity,
             Collectible,
-            XP{ amount: enemy.xp_drop },
+            XP {
+                amount: enemy.xp_drop,
+            },
             Transform::from_translation(transform.translation),
             // AABB{
             //     max_x: translation.x + 20.,
@@ -100,7 +99,7 @@ fn despawn_enemies(
             //     width: 20.,
             //     height: 20.,
             // },
-            Aabb{
+            Aabb {
                 center: transform.translation.to_vec3a(),
                 half_extents: Vec3A::new(40.0, 40.0, 1.0),
             },
@@ -116,18 +115,18 @@ fn despawn_enemies(
 
         commands.entity(enemy_entity).try_despawn();
         player.score += 1;
-
     }
 }
 
-
 pub fn follow(
     player_query: Query<&Transform, With<Player>>,
-    mut enemy_query: Query<(&mut Transform, &Enemy, &mut Aabb, &Children), (With<Enemy>, Without<Player>)>,
+    mut enemy_query: Query<
+        (&mut Transform, &Enemy, &mut Aabb, &Children),
+        (With<Enemy>, Without<Player>),
+    >,
     time: Res<Time>,
     mut enemy_move_timer: ResMut<MoveTimer>,
     mut enemy_sprit_query: Query<(&mut Sprite, &mut EnemySprit), With<EnemySprit>>,
-
 ) {
     let Ok(player_transform) = player_query.single() else {
         return;
@@ -135,8 +134,8 @@ pub fn follow(
     let player_position = player_transform.translation;
 
     enemy_move_timer.timer.tick(time.delta());
-    for (mut enemy_position, enemy, mut aabb, children) in enemy_query.iter_mut(){
-        let diff: Vec3  = player_position - enemy_position.translation;
+    for (mut enemy_position, enemy, mut aabb, children) in enemy_query.iter_mut() {
+        let diff: Vec3 = player_position - enemy_position.translation;
         if diff.length_squared() < 1e-6 {
             continue;
         }
@@ -153,17 +152,9 @@ pub fn follow(
                 enemy_sprit.index = i;
 
                 let atlas_index = if direction.x.abs() > direction.y.abs() {
-                    if direction.x > 0.0 {
-                        27 + i
-                    } else {
-                        9 + i
-                    }
+                    if direction.x > 0.0 { 27 + i } else { 9 + i }
                 } else {
-                    if direction.y > 0.0 {
-                        0 + i
-                    } else {
-                        18 + i
-                    }
+                    if direction.y > 0.0 { 0 + i } else { 18 + i }
                 };
 
                 if let Some(ref mut atlas) = sprite.texture_atlas {
@@ -188,10 +179,14 @@ pub fn spawn_enemies(
         enemy_power.level += 1;
     }
     let level = enemy_power.level;
-    
+
     spawn_timer.timer.tick(time.delta());
-    if !spawn_timer.timer.just_finished() { return; }
-    if !atlases.ready { return; }
+    if !spawn_timer.timer.just_finished() {
+        return;
+    }
+    if !atlases.ready {
+        return;
+    }
 
     let Ok(player_transform) = player_query.single() else {
         return;
@@ -204,29 +199,51 @@ pub fn spawn_enemies(
 
     let body_atlas = atlases.body.as_ref().unwrap().clone();
     let shield_atlas = atlases.shield.as_ref().unwrap().clone();
-    if let Some((body_lay, _shield_lay)) = atlas_layouts.get(&body_atlas).zip(atlas_layouts.get(&shield_atlas)) {
+    if let Some((body_lay, _shield_lay)) = atlas_layouts
+        .get(&body_atlas)
+        .zip(atlas_layouts.get(&shield_atlas))
+    {
         if let Some(body_rect) = body_lay.textures.get(0) {
-            let b_width = body_rect.width() as f32 /2. - 10.;
-            let b_height = body_rect.height() as f32 /2. - 10.;
-
+            let b_width = body_rect.width() as f32 / 2. - 10.;
+            let b_height = body_rect.height() as f32 / 2. - 10.;
 
             let spirit = match level {
-                1 => Sprite::from_atlas_image(textures.robot.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-                2 => Sprite::from_atlas_image(textures.wizard.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
-                _ => Sprite::from_atlas_image(textures.elf.clone(), TextureAtlas { layout: body_atlas, index: 15 }),
+                1 => Sprite::from_atlas_image(
+                    textures.robot.clone(),
+                    TextureAtlas {
+                        layout: body_atlas,
+                        index: 15,
+                    },
+                ),
+                2 => Sprite::from_atlas_image(
+                    textures.wizard.clone(),
+                    TextureAtlas {
+                        layout: body_atlas,
+                        index: 15,
+                    },
+                ),
+                _ => Sprite::from_atlas_image(
+                    textures.elf.clone(),
+                    TextureAtlas {
+                        layout: body_atlas,
+                        index: 15,
+                    },
+                ),
             };
 
-
-        commands
+            commands
                 .spawn((
                     GameEntity,
                     Transform::from_xyz(x, y, 0.0),
                     Enemy {
-                        health: 100 * level, damage: 1 * level,
-                        speed: rand::rng().random_range((100.0 * level as f32) ..200.0 * level as f32),
-                        xp_drop: 20 * level},
+                        health: 100 * level,
+                        damage: 1 * level,
+                        speed: rand::rng()
+                            .random_range((100.0 * level as f32)..200.0 * level as f32),
+                        xp_drop: 20 * level,
+                    },
                     InheritedVisibility::default(),
-                    Aabb{
+                    Aabb {
                         center: Vec3::new(x, y, 0.0).into(),
                         half_extents: Vec3::new(b_width, b_height, 0.0).into(),
                     },
@@ -234,25 +251,24 @@ pub fn spawn_enemies(
                     //AABB { max_x: x + b_width, max_y: y + b_height, min_x: x - b_width, min_y: y - b_height, width: b_width * 2., height: b_height * 2. },
                 ))
                 .with_children(|parent| {
-                    parent.spawn((
-                        spirit,
-                        EnemySprit { index: 0 },
-                    ));
+                    parent.spawn((spirit, EnemySprit { index: 0 }));
 
                     parent.spawn((
-                        Sprite::from_atlas_image(textures.shield.clone(), TextureAtlas { layout: shield_atlas, index: 15 }),
+                        Sprite::from_atlas_image(
+                            textures.shield.clone(),
+                            TextureAtlas {
+                                layout: shield_atlas,
+                                index: 15,
+                            },
+                        ),
                         EnemySprit { index: 0 },
                     ));
                 });
         }
     }
-
-
 }
 
-pub fn enemy_collision_with_enemy(
-    mut enemy_query: Query<(&mut Transform, &Aabb), With<Enemy>>,
-){
+pub fn enemy_collision_with_enemy(mut enemy_query: Query<(&mut Transform, &Aabb), With<Enemy>>) {
     let mut combinations = enemy_query.iter_combinations_mut();
 
     while let Some([(mut transform1, aabb1), (mut transform2, aabb2)]) = combinations.fetch_next() {

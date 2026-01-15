@@ -17,9 +17,8 @@ pub fn aabb_intersects(a: &Aabb, b: &Aabb) -> bool {
 }
 
 pub fn contains_point(aabb: &Aabb, point: Vec3) -> bool {
-
     point.x >= aabb.center.x - aabb.half_extents.x
-        && point.x<= aabb.center.x + aabb.half_extents.x
+        && point.x <= aabb.center.x + aabb.half_extents.x
         && point.y >= aabb.center.y - aabb.half_extents.y
         && point.y <= aabb.center.y + aabb.half_extents.y
 }

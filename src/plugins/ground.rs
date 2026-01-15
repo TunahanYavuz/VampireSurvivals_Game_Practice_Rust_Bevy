@@ -1,14 +1,15 @@
+use crate::plugins::game_state::GameState;
 use bevy::prelude::*;
 use std::collections::HashSet;
-use crate::plugins::game_state::GameState;
 
 pub struct GroundPlugin;
 
 impl Plugin for GroundPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(Startup, setup_ground)
-            .add_systems(Update, update_ground_chunks.run_if(in_state(GameState::Playing)));
+        app.add_systems(Startup, setup_ground).add_systems(
+            Update,
+            update_ground_chunks.run_if(in_state(GameState::Playing)),
+        );
     }
 }
 
@@ -43,10 +44,7 @@ impl Default for GroundSystem {
 }
 
 /// Zemin sistemini başlat - texture'ı yükle
-pub fn setup_ground(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+pub fn setup_ground(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tile_texture = asset_server.load("textures/rpg/tiles/generic-rpg-tile01.png");
 
     commands.insert_resource(GroundSystem {
@@ -97,16 +95,13 @@ pub fn update_ground_chunks(
     }
 
     // Yüklenmeyen chunk'ları loaded_chunks'tan kaldır
-    ground_system.loaded_chunks.retain(|chunk| needed_chunks.contains(chunk));
+    ground_system
+        .loaded_chunks
+        .retain(|chunk| needed_chunks.contains(chunk));
 }
 
 /// Belirli bir chunk'ı spawn et (16x16 tile)
-fn spawn_chunk(
-    commands: &mut Commands,
-    ground_system: &GroundSystem,
-    chunk_x: i32,
-    chunk_y: i32,
-) {
+fn spawn_chunk(commands: &mut Commands, ground_system: &GroundSystem, chunk_x: i32, chunk_y: i32) {
     let chunk_size_world = ground_system.chunk_size as f32 * ground_system.tile_size;
     let chunk_origin_x = chunk_x as f32 * chunk_size_world;
     let chunk_origin_y = chunk_y as f32 * chunk_size_world;
@@ -129,5 +124,3 @@ fn spawn_chunk(
         }
     }
 }
-
-

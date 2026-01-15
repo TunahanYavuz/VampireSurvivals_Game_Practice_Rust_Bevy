@@ -1,15 +1,14 @@
-use bevy::camera::primitives::Aabb;
-use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
-use bevy::prelude::*;
-use crate::plugins::aabb::AABB;
 use crate::plugins::common::GameEntity;
+use crate::plugins::enemy::EnemyPowerUpTimer;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::timers::{EnemySpawnTimer, MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
-use crate::plugins::enemy::EnemyPowerUpTimer;
+use bevy::camera::primitives::Aabb;
+use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
+use bevy::prelude::*;
 
 pub struct GamePlugin;
 
@@ -23,10 +22,16 @@ impl Plugin for GamePlugin {
             .add_systems(Startup, minimal_setup)
             // State transitions
             .add_systems(OnEnter(GameState::Loading), cleanup_game)
-            .add_systems(OnEnter(GameState::GameOver), (cleanup_game, show_game_over_screen).chain())
+            .add_systems(
+                OnEnter(GameState::GameOver),
+                (cleanup_game, show_game_over_screen).chain(),
+            )
             .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
             // Loading state
-            .add_systems(Update, prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)));
+            .add_systems(
+                Update,
+                prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
+            );
     }
 }
 
@@ -76,45 +81,51 @@ fn prepare_atlases_and_spawn(
     let body_atlas = texture_atlases.add(layout.clone());
     let shield_atlas = texture_atlases.add(layout.clone());
 
-
     atlases.body = Some(body_atlas.clone());
     atlases.shield = Some(shield_atlas);
 
-    
     atlases.ready = true;
 
     // Player spawn - GameEntity marker ile işaretle
-    let player_entity = commands.spawn((
-        GameEntity,
-        Sprite::from_atlas_image(
-            textures.body.clone(),
-            TextureAtlas {
-                layout: body_atlas,
-                index: 0,
+    let player_entity = commands
+        .spawn((
+            GameEntity,
+            Sprite::from_atlas_image(
+                textures.body.clone(),
+                TextureAtlas {
+                    layout: body_atlas,
+                    index: 0,
+                },
+            ),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            Player {
+                health: 100,
+                movement: 200.,
+                ..default()
             },
-        ),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        Player {
-            health: 100,
-            movement: 200.,
-            ..default()
-        },
-        Aabb{
-            center: Vec3::ZERO.into(),
-            half_extents: Vec3::new(20., 20., 0.0).into(),
-        },
-        NoAutoAabb,
-        NoFrustumCulling,
-        // AABB {
-        //     max_x: 20.,
-        //     max_y: 20.,
-        //     min_x: -20.,
-        //     min_y: -20.,
-        //     width: 40.,
-        //     height: 40.,
-        // },
-    )).id();
-    spawn_weapons_for_player(&mut commands, player_entity, Vec3::ZERO, &mut meshes, &mut materials);
+            Aabb {
+                center: Vec3::ZERO.into(),
+                half_extents: Vec3::new(20., 20., 0.0).into(),
+            },
+            NoAutoAabb,
+            NoFrustumCulling,
+            // AABB {
+            //     max_x: 20.,
+            //     max_y: 20.,
+            //     min_x: -20.,
+            //     min_y: -20.,
+            //     width: 40.,
+            //     height: 40.,
+            // },
+        ))
+        .id();
+    spawn_weapons_for_player(
+        &mut commands,
+        player_entity,
+        Vec3::ZERO,
+        &mut meshes,
+        &mut materials,
+    );
     next_state.set(GameState::Playing);
 }
 
@@ -169,4 +180,3 @@ fn restart_on_key(
         next_state.set(GameState::Loading);
     }
 }
-

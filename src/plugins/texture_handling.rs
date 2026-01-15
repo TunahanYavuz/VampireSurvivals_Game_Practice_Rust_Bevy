@@ -2,7 +2,6 @@ use bevy::asset::Handle;
 use bevy::image::Image;
 use bevy::prelude::{AssetServer, FromWorld, Resource, World};
 
-
 #[derive(Resource)]
 pub struct TextureAssets {
     pub body: Handle<Image>,
@@ -16,9 +15,10 @@ pub struct TextureAssets {
 }
 impl FromWorld for TextureAssets {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>()
+        let asset_server = world
+            .get_resource::<AssetServer>()
             .expect("AssetServer resource not found.");
-        Self{
+        Self {
             body: asset_server.load("BODY_skeleton.png"),
             shield: asset_server.load("WEAPON_shield_cutout_body.png"),
             zombie: asset_server.load("zombie.png"),

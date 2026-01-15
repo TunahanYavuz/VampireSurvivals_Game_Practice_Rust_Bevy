@@ -1,7 +1,3 @@
-use bevy::audio::{AudioPlayer, PlaybackSettings};
-use bevy::camera::primitives::Aabb;
-use bevy::image::TextureAtlas;
-use bevy::prelude::*;
 use crate::plugins::aabb::AABB;
 use crate::plugins::audio::{GameAudio, GameAudioEntity};
 use crate::plugins::common::aabb_intersects;
@@ -10,6 +6,10 @@ use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
+use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::camera::primitives::Aabb;
+use bevy::image::TextureAtlas;
+use bevy::prelude::*;
 
 pub struct PlayerPlugin;
 
@@ -24,7 +24,8 @@ impl Plugin for PlayerPlugin {
                 collect_xp,
                 collect_xp_with_magnet,
                 magnetite_xp_to_player,
-            ).run_if(in_state(GameState::Playing)),
+            )
+                .run_if(in_state(GameState::Playing)),
         );
     }
 }
@@ -41,13 +42,18 @@ pub struct Player {
 
 impl Default for Player {
     fn default() -> Self {
-        Self { health: 100, score: 0, movement: 200., xp: 0., level: 1, xp_to_next_level: 100. }
+        Self {
+            health: 100,
+            score: 0,
+            movement: 200.,
+            xp: 0.,
+            level: 1,
+            xp_to_next_level: 100.,
+        }
     }
 }
 
 impl Player {
-
-
     pub fn take_damage(
         &mut self,
         entity: Entity,
@@ -56,7 +62,7 @@ impl Player {
         player_aabb: &Aabb,
     ) {
         for (enemy_aabb, enemy) in enemy_query.iter() {
-            if self.health > 0 && aabb_intersects(enemy_aabb,player_aabb) {
+            if self.health > 0 && aabb_intersects(enemy_aabb, player_aabb) {
                 if self.health > 0 {
                     self.health = self.health.saturating_sub(enemy.damage as u32);
                 }
@@ -68,10 +74,17 @@ impl Player {
         }
     }
 
-    pub fn gain_xp(&mut self, amount: f32, message_writer: &mut MessageWriter<LevelUpEvent>, next_state: &mut NextState<GameState>, commands: &mut Commands, audio: &GameAudio) {
+    pub fn gain_xp(
+        &mut self,
+        amount: f32,
+        message_writer: &mut MessageWriter<LevelUpEvent>,
+        next_state: &mut NextState<GameState>,
+        commands: &mut Commands,
+        audio: &GameAudio,
+    ) {
         self.xp += amount;
 
-        if self.xp >=self.xp_to_next_level{
+        if self.xp >= self.xp_to_next_level {
             self.xp -= self.xp_to_next_level;
             self.xp_to_next_level *= 1.5;
             self.level += 1;
@@ -81,7 +94,7 @@ impl Player {
                 PlaybackSettings::DESPAWN,
             ));
 
-            message_writer.write(LevelUpEvent{level: self.level});
+            message_writer.write(LevelUpEvent { level: self.level });
             println!("🎉 LEVEL UP! Level: {}", self.level);
             next_state.set(GameState::UpgradeSelection);
         }
@@ -95,11 +108,17 @@ pub fn collect_xp(
     mut level_up_events: MessageWriter<LevelUpEvent>,
     mut next_state: ResMut<NextState<GameState>>,
     audio: Res<GameAudio>,
-){
-    for (mut player, player_aabb) in player_query.iter_mut(){
-        for (xp_aabb, _collectible, xp, entity) in xp_query.iter_mut(){
+) {
+    for (mut player, player_aabb) in player_query.iter_mut() {
+        for (xp_aabb, _collectible, xp, entity) in xp_query.iter_mut() {
             if aabb_intersects(xp_aabb, player_aabb) {
-                player.gain_xp(xp.amount as f32, &mut level_up_events, &mut next_state, &mut commands, &audio);
+                player.gain_xp(
+                    xp.amount as f32,
+                    &mut level_up_events,
+                    &mut next_state,
+                    &mut commands,
+                    &audio,
+                );
                 commands.entity(entity).despawn();
             }
         }
@@ -113,8 +132,8 @@ pub fn collect_xp_with_magnet(
     mut commands: Commands,
     xp_query: Query<Entity, With<XP>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-){
-    if keyboard_input.just_pressed(KeyCode::KeyC){
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         for entity in xp_query {
             commands.entity(entity).insert(XPMagnetite);
         }
@@ -124,12 +143,12 @@ pub fn collect_xp_with_magnet(
 pub fn magnetite_xp_to_player(
     mut xp_query: Query<(&mut Transform, &mut Aabb), (With<XPMagnetite>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<XPMagnetite>)>,
-){
-    let Ok(player_position) = player_query.single() else{
+) {
+    let Ok(player_position) = player_query.single() else {
         return;
     };
 
-    for (mut xp_transform, mut xp_aabb) in xp_query.iter_mut(){
+    for (mut xp_transform, mut xp_aabb) in xp_query.iter_mut() {
         let direction = (player_position.translation - xp_transform.translation).normalize();
         xp_transform.translation += direction * 5.;
         xp_aabb.center = xp_transform.translation.into();
@@ -147,10 +166,9 @@ pub fn move_player(
         return;
     }
 
-    let Ok((mut transform, player, mut aabb,mut sprite)) = player_query.single_mut() else {
+    let Ok((mut transform, player, mut aabb, mut sprite)) = player_query.single_mut() else {
         return;
     };
-
 
     if sprite.texture_atlas.is_none() {
         if let Some(layout_handle) = &atlases.body {
@@ -163,8 +181,7 @@ pub fn move_player(
 
     let mut pos = transform.translation;
 
-
-    let mut dir= 5;
+    let mut dir = 5;
 
     if keyboard_input.pressed(KeyCode::KeyA) {
         pos.x -= player.movement * time.delta_secs();
@@ -234,4 +251,3 @@ pub fn reduce_player_health(
         next_state.set(GameState::GameOver);
     }
 }
-

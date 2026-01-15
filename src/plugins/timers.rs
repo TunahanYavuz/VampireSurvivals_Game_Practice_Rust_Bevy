@@ -4,8 +4,7 @@ pub struct TimerPlugin;
 
 impl Plugin for TimerPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<MoveTimer>()
+        app.init_resource::<MoveTimer>()
             .init_resource::<PlayerHealthReduceTimer>();
     }
 }
@@ -32,7 +31,6 @@ impl Default for MoveTimer {
             timer: Timer::from_seconds(0.2, TimerMode::Repeating),
         }
     }
-
 }
 #[derive(Resource)]
 pub struct PlayerHealthReduceTimer {
@@ -44,5 +42,4 @@ impl Default for PlayerHealthReduceTimer {
             timer: Timer::from_seconds(0.2, TimerMode::Repeating),
         }
     }
-
 }

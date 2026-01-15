@@ -1,13 +1,12 @@
-use bevy::prelude::*;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
+use bevy::prelude::*;
 
 pub struct ScorePlugin;
 
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<GameScore>()
+        app.init_resource::<GameScore>()
             .add_systems(Startup, setup_score_ui)
             .add_systems(Update, update_score_ui.run_if(in_state(GameState::Playing)));
     }
@@ -20,12 +19,10 @@ pub struct ScoreText;
 pub struct GameScore {
     pub score: u32,
 }
-pub fn setup_score_ui(
-    mut commands: Commands,
-){
+pub fn setup_score_ui(mut commands: Commands) {
     commands.spawn((
         Text::new("Score 0"),
-        Node{
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
             right: Val::Px(10.0),
@@ -33,21 +30,20 @@ pub fn setup_score_ui(
             border_radius: BorderRadius::all(Val::Px(10.0)),
             ..default()
         },
-        Outline{
+        Outline {
             width: Val::Px(2.0),
             offset: Val::Px(0.0),
             color: Color::srgba(1.0, 0.0, 0.0, 0.8),
         },
         BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.9)),
         ScoreText,
-        ));
+    ));
 }
-pub fn update_score_ui(
-    player: Single<&Player>,
-    mut query: Query<&mut Text, With<ScoreText>>
-){
+pub fn update_score_ui(player: Single<&Player>, mut query: Query<&mut Text, With<ScoreText>>) {
     for mut text in query.iter_mut() {
-        text.0 = format!("Score: {}\nXP:{}\nXP to next level:{}\nPlayer HP: {}", player.score, player.xp, player.xp_to_next_level, player.health);
+        text.0 = format!(
+            "Score: {}\nXP:{}\nXP to next level:{}\nPlayer HP: {}",
+            player.score, player.xp, player.xp_to_next_level, player.health
+        );
     }
 }
-
