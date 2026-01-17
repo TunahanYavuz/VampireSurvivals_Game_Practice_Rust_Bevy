@@ -79,7 +79,7 @@ pub struct WeaponLevel {
     pub weapon_type: WeaponType,
 }
 impl UpgradeChoices {
-    pub fn generate_random_options(&mut self) -> Vec<UpgradeOption> {
+    pub fn generate_random_options(&mut self, asset_server: &AssetServer) -> Vec<UpgradeOption> {
         let all_options = vec![
             UpgradeOption {
                 weapon_type: WeaponType::Laser,
@@ -109,7 +109,7 @@ impl UpgradeChoices {
                 weapon_type: WeaponType::Sword,
                 name: "Kılıç Silahı Güçlendir".to_string(),
                 description: "Hasar +5, Adet +2".to_string(),
-                icon: None,
+                icon: Some(asset_server.load("sword.png")),
             },
         ];
         let mut rng = rng();
@@ -134,7 +134,7 @@ pub fn show_upgrade_choices_on_level_up(
 ) {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
     for _ in level_up_events.read() {
-        let options = upgrade_choices.generate_random_options();
+        let options = upgrade_choices.generate_random_options(&asset_server);
 
         let Ok(table_entity) = table.single() else {
             commands.spawn((WeaponTable, Node::default()));
@@ -165,7 +165,29 @@ pub fn show_upgrade_choices_on_level_up(
                         offset: Val::Px(0.0),
                         color: Color::srgba(0.0, 0.1, 0.2, 0.8),
                     },
-                ));
+                )).with_children(|parent| {
+                    if let Some(icon_handle) = &option.icon {
+                        parent.spawn((
+                            ImageNode::new(icon_handle.clone()),
+                            Node{
+                                left: Val::Percent(75.0),
+                                top: Val::Percent(45.0),
+                                width: Val::Px(64.0),
+                                height: Val::Px(64.0),
+                                margin: UiRect::right(Val::Px(10.0)),
+                                border_radius: BorderRadius::all(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 1.0)),
+                            Outline{
+                                width: Val::Px(1.0),
+                                offset: Val::Px(0.0),
+                                color: Color::srgba(0.0, 0.0, 0.0, 0.8),
+                            },
+
+                            ));
+                    }
+                });
             });
         }
     }

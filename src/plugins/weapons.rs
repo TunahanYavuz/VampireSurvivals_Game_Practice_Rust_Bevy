@@ -1,5 +1,4 @@
-use crate::plugins::aabb::AABB;
-use crate::plugins::audio::GameAudio;
+
 use crate::plugins::common::{GameEntity, aabb_intersects, contains_point};
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
@@ -7,10 +6,9 @@ use crate::plugins::player::Player;
 use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::weapon_stats::{SwordWeapon, WeaponStats};
 use bevy::camera::primitives::Aabb;
-use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
+use bevy::camera::visibility::{ NoFrustumCulling};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::render::render_resource::Texture;
 
 pub struct WeaponPlugin;
 
@@ -584,7 +582,6 @@ pub fn throw_swords(
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
     };
-
     let mut direction = Vec3::X;
     let mut is_cursor_at_window = false;
 
@@ -597,7 +594,6 @@ pub fn throw_swords(
         }
     }
     for (mut sword, mut weapon) in sword.iter_mut() {
-        sword.last_direction = direction;
         weapon.fire_timer.tick(time.delta());
         if !weapon.fire_timer.just_finished() {
             continue;
@@ -605,6 +601,7 @@ pub fn throw_swords(
         if !is_cursor_at_window {
             direction = sword.last_direction;
         }
+        sword.last_direction = direction;
         commands.spawn((
             GameEntity,
             SwordProjectile {
@@ -614,6 +611,10 @@ pub fn throw_swords(
                 damage: weapon.damage,
                 hit_enemies: Vec::new(),
                 lifetime: Timer::from_seconds(2.0, TimerMode::Once),
+            },
+            Aabb{
+                center: player.1.translation.to_vec3a(),
+                half_extents: Vec3A::splat(60.0),
             },
             NoFrustumCulling,
             Sprite {
@@ -630,25 +631,25 @@ pub fn move_swords(
     time: Res<Time>,
     mut swords: Query<
         (Entity, &mut Transform, &mut SwordProjectile, &mut Aabb),
-        With<SwordProjectile>,
+        (With<SwordProjectile>, Without<Enemy>),
     >,
-    mut enemies: Query<(Entity, &mut Enemy, &mut Aabb, &mut Transform), Without<SwordProjectile>>,
+    mut enemies: Query<(Entity, &mut Enemy, &mut Aabb, &mut Transform), (With<Enemy>, Without<SwordProjectile>)>,
 ) {
     for (sword_entity, mut sword_transform, mut sword, mut sword_aabb) in swords.iter_mut() {
-        // Hareket
-        sword_transform.translation += sword.direction * sword.speed * time.delta_secs();
-
-        // Döndürme efekti
-        sword.angle += 20.0 * time.delta_secs();
-        sword_transform.rotation = Quat::from_rotation_z(sword.angle);
-
+        println!("sword position: {:?}", sword_transform.translation);
         // Ömür kontrolü
         sword.lifetime.tick(time.delta());
         if sword.lifetime.just_finished() {
             commands.entity(sword_entity).despawn();
         }
 
+        // Hareket
+        sword_transform.translation += sword.direction * sword.speed * time.delta_secs();
         sword_aabb.center = sword_transform.translation.to_vec3a();
+        // Döndürme efekti
+        sword.angle += 20.0 * time.delta_secs();
+        sword_transform.rotation = Quat::from_rotation_z(sword.angle);
+
         for (enemy_entity, mut enemy, mut aabb, mut transform) in enemies.iter_mut() {
             if aabb_intersects(&aabb, &sword_aabb) && !sword.hit_enemies.contains(&enemy_entity) {
                 // Hasar uygula
