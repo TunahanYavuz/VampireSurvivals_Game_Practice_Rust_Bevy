@@ -1,129 +1,171 @@
-# Vampire Survivors Game Practice - Rust & Bevy
+# 🧛 Vampire Survivors Clone - Rust & Bevy
 
-🎮 **A Vampire Survivors-inspired game built with Rust and Bevy Engine**
+[![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
+[![Bevy](https://img.shields.io/badge/bevy-0.17.3-blue.svg)](https://bevyengine.org/)
+[![License](https://img.shields.io/badge/license-Educational-green.svg)](LICENSE)
 
-> **Note:** This project is purely for entertainment and learning purposes. It is currently a work in progress.
+> **Vampire Survivors tarzı bir hayatta kalma oyunu - Rust ve Bevy Engine ile geliştirilmiştir**
 
-## 📖 About
+## 📖 Hakkında
 
-This is a practice project implementing a Vampire Survivors-style survival game using the Bevy game engine. The game features wave-based enemy spawning, character progression with upgrades, and various weapon systems.
+Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta kalma oyunu uygulamasıdır. Oyun, dalga bazlı düşman spawn sistemi, karakter gelişimi ve çeşitli silah sistemleri içermektedir.
 
-## 🚀 Features
+**⚠️ Not:** Bu proje tamamen eğitim ve eğlence amaçlıdır. Aktif geliştirme aşamasındadır.
 
-### Current Implementation
+## ✨ Özellikler
 
-- **Player Movement**: WASD controls with animated character sprites
-- **Enemy System**: 
-  - Automated enemy spawning with increasing difficulty
-  - Enemies follow and chase the player
-  - Progressive power scaling over time
-- **Weapon Systems**:
-  - Laser weapons with customizable colors
-  - Rocket/projectile weapons
-  - Player-attached weapons (shields, etc.)
-  - Auto-firing mechanics
-- **Progression System**:
-  - XP collection from defeated enemies
-  - Level-up mechanics
-  - Weapon upgrade selection system
-- **Game States**:
-  - Loading screen
-  - Active gameplay
-  - Upgrade selection menu
-  - Game over screen with restart capability
-- **Score Tracking**: Real-time score display
-- **Camera System**: Smooth camera following the player
-- **Infinite Ground**: Dynamic ground chunk generation
+### 🎯 Mevcut Özellikler
 
-## 🎯 Controls
+#### Oyuncu Sistemi
+- **Hareket Kontrolleri**: WASD tuşları ile 8 yönlü hareket
+- **Animasyonlu Karakterler**: Sprite tabanlı karakter animasyonları
+- **Otomatik Kamera Takibi**: Yumuş kamera hareketi
 
-- **W/A/S/D**: Move character
-- **R**: Restart game (when game over)
-- **Mouse**: Select weapon upgrades during level-up
+#### Düşman Sistemi
+- **Dinamik Spawn Sistemi**: Artan zorlukla otomatik düşman oluşturma
+- **Akıllı AI**: Düşmanlar oyuncuyu takip eder ve kovalar
+- **Zorluk Skalası**: Zamanla artan güç ve hız
 
-## 🛠️ Technical Stack
+#### Silah Sistemleri
+- **Lazer Silahlar**: Özelleştirilebilir renk ve güç seviyeleri
+- **Roket/Mermi Silahları**: Projektil tabanlı saldırı sistemi
+- **Yakın Dövüş Silahları**: Kalkan ve benzeri oyuncuya bağlı silahlar
+- **Otomatik Ateşleme**: Silahlar otomatik olarak ateş eder
 
-- **Language**: Rust (Edition 2024)
-- **Game Engine**: Bevy 0.17.3
-- **Dependencies**:
+#### İlerleme Sistemi
+- **XP Toplama**: Yenilen düşmanlardan XP kazanımı
+- **Seviye Atlama**: XP ile karakter seviye sistemi
+- **Yükseltme Seçimi**: Her seviyede 3 rastgele silah yükseltmesi
+- **Stat Geliştirme**: Silah hasarı, ateş hızı ve diğer özellikler
+
+#### Oyun Durumları
+- **Yükleme Ekranı**: Asset yükleme ve başlangıç
+- **Aktif Oynanış**: Ana oyun döngüsü
+- **Yükseltme Menüsü**: Seviye atlama silah seçimi
+- **Oyun Bitti Ekranı**: Yeniden başlatma seçeneği ile
+
+#### UI Sistemi
+- **Skor Takibi**: Anlık skor gösterimi
+- **XP Barı**: Görsel ilerleme göstergesi
+- **Seviye Göstergesi**: Mevcut karakter seviyesi
+
+#### Dünya Sistemi
+- **Sonsuz Zemin**: Dinamik chunk tabanlı zemin oluşturma
+- **Performans Optimizasyonu**: Uzaktaki chunk'ların temizlenmesi
+
+## 🎮 Kontroller
+
+| Tuş         | Fonksiyon                             |
+|-------------|---------------------------------------|
+| **W/A/S/D** | Karakter hareketi                     |
+| **R**       | Oyunu yeniden başlat (Game Over'da)   |
+| **Mouse**   | Yükseltme seçimi (Seviye atladığında) |
+| **ESC**     | Oyundan çık                           |
+| **C**       | XP' leri topla                        |
+
+
+## 🛠️ Teknik Detaylar
+
+### Teknoloji Stack
+- **Dil**: Rust (Edition 2024)
+- **Oyun Motoru**: Bevy 0.17.3
+- **ECS**: Entity Component System mimarisi
+- **Bağımlılıklar**:
   - `bevy_ecs` - Entity Component System
-  - `bevy_light` - Lighting system
-  - `rand` - Random number generation
+  - `bevy_light` - Işıklandırma sistemi
+  - `rand` - Rastgele sayı üretimi
 
-## 📦 Building and Running
+### Sistem Gereksinimleri
+- **OS**: Windows 10/11, Linux, macOS
+- **RAM**: 4GB minimum, 8GB önerilen
+- **GPU**: OpenGL 3.3+ destekli herhangi bir GPU
 
-### Prerequisites
+## 📦 Kurulum ve Çalıştırma
 
-- Rust toolchain (latest stable version)
-- Cargo package manager
-
-### Build and Run
-
+### Gereksinimler
 ```bash
-# Clone the repository
+# Rust kurulumu (eğer yoksa)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### Projeyi Klonlama ve Çalıştırma
+```bash
+# Repoyu klonlayın
 git clone https://github.com/TunahanYavuz/VampireSurvivals_Game_Practice_Rust_Bevy.git
 cd VampireSurvivals_Game_Practice_Rust_Bevy
 
-# Run in development mode
+# Geliştirme modunda çalıştırın
 cargo run
 
-# Run in release mode (optimized)
+# Release modunda çalıştırın (optimize edilmiş)
 cargo run --release
 ```
 
-### Build Profiles
-
-The project includes optimized build profiles:
-- **Development**: Basic optimization (opt-level 1) for faster compilation
-- **Dependencies**: Highly optimized (opt-level 3) even in dev mode
-- **Release**: Full optimization (opt-level 3)
-
-## 🎨 Project Structure
-
-```
-src/
-├── main.rs                    # Main game loop and system setup
-└── plugins/
-    ├── player.rs              # Player movement and behavior
-    ├── enemy.rs               # Enemy spawning and AI
-    ├── weapons.rs             # Weapon systems and firing
-    ├── weapon_stats.rs        # Weapon configuration
-    ├── weapon_upgrade.rs      # Upgrade selection system
-    ├── timers.rs              # Game timing and spawn rates
-    ├── aabb.rs                # Collision detection
-    ├── game_state.rs          # Game state management
-    ├── score.rs               # Score tracking and UI
-    ├── ground.rs              # Ground generation
-    └── texture_handling.rs    # Asset management
+### Build Profilleri
+```toml
+# Development: Hızlı derleme (opt-level 1)
+# Dependencies: Yüksek optimizasyon (opt-level 3)
+# Release: Tam optimizasyon (opt-level 3, LTO aktif)
 ```
 
-## 🎮 Gameplay
+## 📁 Proje Yapısı
 
-Survive against waves of enemies by moving around and collecting XP. As you level up, choose from random weapon upgrades to enhance your arsenal. Each upgrade improves your weapons or adds new ones to your character. The game becomes progressively harder as enemies spawn more frequently and become more powerful.
+```
+gameDeveloping/
+├── src/
+│   ├── main.rs                 # Ana oyun döngüsü ve sistem kurulumu
+│   └── plugins/
+│       ├── player.rs           # Oyuncu hareketi ve davranışı
+│       ├── enemy.rs            # Düşman spawn ve AI sistemi
+│       ├── weapons.rs          # Silah sistemleri ve ateşleme
+│       ├── weapon_stats.rs     # Silah konfigürasyonu ve stats
+│       ├── weapon_upgrade.rs   # Yükseltme seçim sistemi
+│       ├── timers.rs           # Oyun zamanlayıcıları ve spawn oranları
+│       ├── aabb.rs             # Çarpışma algılama (AABB)
+│       ├── game_state.rs       # Oyun durumu yönetimi
+│       ├── score.rs            # Skor takibi ve UI
+│       ├── ground.rs           # Zemin oluşturma sistemi
+│       └── texture_handling.rs # Asset yönetimi
+├── assets/                     # Oyun varlıkları
+│   ├── sprites/               # Karakter ve düşman sprite'ları
+│   ├── weapons/               # Silah grafikleri
+│   └── ui/                    # Kullanıcı arayüzü öğeleri
+├── Cargo.toml                 # Proje bağımlılıkları
+└── README.md                  # Bu dosya
+```
 
-## 🚧 Work in Progress
+## 🎮 Oynanış
 
-This project is actively being developed. Future improvements may include:
-- Additional weapon types
-- More enemy varieties
-- Power-up items
-- Sound effects and music
-- Visual effects enhancements
-- Boss encounters
-- Difficulty levels
+Dalga dalga gelen düşmanlara karşı hayatta kalmaya çalışın, hareket edin ve XP toplayın. Seviye atladıkça, silahlarınızı güçlendirmek için rastgele yükseltmeler arasından seçim yapın. Her yükseltme, silahlarınızı iyileştirir veya yeni silahlar ekler. Oyun, düşmanlar daha sık ve güçlü hale geldikçe giderek daha zorlayıcı hale gelir.
 
-## 📝 License
+## 🚧 Geliştirme Aşamasında
 
-This project is for educational and entertainment purposes only.
+Bu proje aktif olarak geliştirilmektedir. Gelecek sürümlerdeki olası iyileştirmeler şunları içerebilir:
+- Ekstra silah tipleri
+- Daha fazla düşman çeşidi
+- Güçlendirici öğeler
+- Ses efektleri ve müzik
+- Görsel efektler iyileştirmeleri
+- Boss karşılaşmaları
+- Zorluk seviyeleri
+- Başarım sistemi
+- Kayıt/yükleme sistemi
+- Çoklu oyuncu karakter seçenekleri
 
-## 🤝 Contributing
+## 🤝 Katkıda Bulunma
 
-As this is a personal practice project, contributions are not currently being accepted. However, feel free to fork and experiment with your own ideas!
+Bu kişisel bir öğrenme projesi olduğu için şu anda katkı kabul edilmemektedir. Ancak fork'layıp kendi fikirlerinizi deneyebilirsiniz!
 
-## 📬 Contact
+## 📄 Lisans
 
-Project by: [TunahanYavuz](https://github.com/TunahanYavuz)
+Bu proje yalnızca eğitim ve eğlence amaçlıdır.
+
+## 📬 İletişim
+
+**Proje Sahibi**: [TunahanYavuz](https://github.com/TunahanYavuz)
 
 ---
 
-*Built with ❤️ using Rust and Bevy*
+⭐ Projeyi beğendiyseniz bir yıldız bırakmayı unutmayın!
+
+*Rust ve Bevy ile ❤️ ile yapılmıştır*
