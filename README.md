@@ -1,7 +1,7 @@
 # 🧛 Vampire Survivors Clone - Rust & Bevy
 
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
-[![Bevy](https://img.shields.io/badge/bevy-0.17.3-blue.svg)](https://bevyengine.org/)
+[![Bevy](https://img.shields.io/badge/bevy-0.18.0-blue.svg)](https://bevyengine.org/)
 [![License](https://img.shields.io/badge/license-Educational-green.svg)](LICENSE)
 
 > **Vampire Survivors tarzı bir hayatta kalma oyunu - Rust ve Bevy Engine ile geliştirilmiştir**
