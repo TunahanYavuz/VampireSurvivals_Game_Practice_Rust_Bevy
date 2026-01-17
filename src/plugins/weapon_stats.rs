@@ -36,21 +36,32 @@ pub fn spawn_weapons_for_player(
     commands: &mut Commands,
     player_entity: Entity,
     _player_pos: Vec3,
-    _meshes: &mut Assets<Mesh>,
-    _materials: &mut Assets<ColorMaterial>,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+    weapon_name: &str,
 ) {
-    println!("Spawning weapons for player!");
-
-    // Lazer silahı
-    //spawn_lazer_weapon(commands, player_entity);
-
-    // Roket silahı
-    spawn_rocket_weapon(commands, player_entity);
-    //Raygun weapon
-    //spawn_ragun_weapon(commands, player_entity);
-
-    // Alev silahı
-    //spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials);
+    println!("Spawning weapon for player!");
+    match weapon_name {
+        "Flame Thrower" => {
+            spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials);
+        }
+        "Laser Gun" => {
+            spawn_lazer_weapon(commands, player_entity);
+        }
+        "Rocket Launcher" => {
+            spawn_rocket_weapon(commands, player_entity);
+        }
+        "Ray Gun" => {
+            spawn_raygun_weapon(commands, player_entity);
+        }
+        "Sword" => {
+            spawn_throwing_weapon(commands, player_entity);
+        }
+        _ => {
+            // Default weapon
+            spawn_rocket_weapon(commands, player_entity);
+        }
+    }
 }
 
 pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity) {

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::audio::GameAudioPlugin;
+use crate::plugins::config::ConfigPlugin;
 use crate::plugins::enemy::EnemyPlugin;
 use crate::plugins::game::GamePlugin;
 use crate::plugins::game_state::GameState;
@@ -15,21 +16,22 @@ mod plugins;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .init_state::<GameState>()
         // Oyun Plugin'leri
         .add_plugins((
-            GamePlugin,
-            PlayerPlugin,
-            EnemyPlugin,
-            WeaponPlugin,
-            UpgradePlugin,
-            ScorePlugin,
-            GroundPlugin,
-            GameAudioPlugin,
-            TimerPlugin,
-            MainMenuPlugin,
+                ConfigPlugin,
+                GamePlugin,
+                PlayerPlugin,
+                EnemyPlugin,
+                WeaponPlugin,
+                UpgradePlugin,
+                ScorePlugin,
+                GroundPlugin,
+                GameAudioPlugin,
+                TimerPlugin,
+                MainMenuPlugin,
         ))
+        .init_state::<GameState>()
+
         .run();
 }
 

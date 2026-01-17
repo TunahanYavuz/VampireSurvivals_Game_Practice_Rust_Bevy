@@ -636,7 +636,6 @@ pub fn move_swords(
     mut enemies: Query<(Entity, &mut Enemy, &mut Aabb, &mut Transform), (With<Enemy>, Without<SwordProjectile>)>,
 ) {
     for (sword_entity, mut sword_transform, mut sword, mut sword_aabb) in swords.iter_mut() {
-        println!("sword position: {:?}", sword_transform.translation);
         // Ömür kontrolü
         sword.lifetime.tick(time.delta());
         if sword.lifetime.just_finished() {

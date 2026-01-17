@@ -16,6 +16,7 @@ use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
 use std::f32::consts::PI;
+use crate::plugins::config::Config;
 
 pub struct EnemyPlugin;
 
@@ -173,10 +174,20 @@ pub fn spawn_enemies(
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     textures: Res<TextureAssets>,
     mut enemy_power: ResMut<EnemyPowerUpTimer>,
+    config: Res<Config>,
 ) {
     enemy_power.timer.tick(time.delta());
+    let enemies = &config.0.enemies;
     if enemy_power.timer.just_finished() {
         enemy_power.level += 1;
+
+        let timer = match enemy_power.level {
+            1 => {Timer::from_seconds(enemies[0].spawn_rate, TimerMode::Repeating)},
+            2 => {Timer::from_seconds(enemies[1].spawn_rate, TimerMode::Repeating)},
+            3 => {Timer::from_seconds(enemies[2].spawn_rate, TimerMode::Repeating)},
+            _ => {Timer::from_seconds(2.0, TimerMode::Repeating)}
+        };
+        spawn_timer.timer = timer;
     }
     let level = enemy_power.level;
 
@@ -206,42 +217,51 @@ pub fn spawn_enemies(
         if let Some(body_rect) = body_lay.textures.get(0) {
             let b_width = body_rect.width() as f32 / 2. - 10.;
             let b_height = body_rect.height() as f32 / 2. - 10.;
-
-            let spirit = match level {
-                1 => Sprite::from_atlas_image(
+            let (spirit, enemy) = match level {
+                1 =>
+                    (Sprite::from_atlas_image(
                     textures.robot.clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
                     },
-                ),
-                2 => Sprite::from_atlas_image(
+                ),Enemy{
+                    health: enemies[0].health,
+                    damage: enemies[0].damage,
+                    speed: enemies[0].speed,
+                    xp_drop: enemies[0].xp_drop,
+                }),
+                2 => (Sprite::from_atlas_image(
                     textures.wizard.clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
                     },
-                ),
-                _ => Sprite::from_atlas_image(
+                ),Enemy{
+                    health: enemies[1].health,
+                    damage: enemies[1].damage,
+                    speed: enemies[1].speed,
+                    xp_drop: enemies[1].xp_drop,
+                }),
+                _ => (Sprite::from_atlas_image(
                     textures.elf.clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
                     },
-                ),
+                ),Enemy{
+                    health: enemies[2].health,
+                    damage: enemies[2].damage,
+                    speed: enemies[2].speed,
+                    xp_drop: enemies[2].xp_drop,
+                }),
             };
 
             commands
                 .spawn((
                     GameEntity,
                     Transform::from_xyz(x, y, 0.0),
-                    Enemy {
-                        health: 100 * level,
-                        damage: 1 * level,
-                        speed: rand::rng()
-                            .random_range((100.0 * level as f32)..200.0 * level as f32),
-                        xp_drop: 20 * level,
-                    },
+                    enemy,
                     InheritedVisibility::default(),
                     Aabb {
                         center: Vec3::new(x, y, 0.0).into(),

@@ -9,6 +9,7 @@ use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::prelude::*;
+use crate::plugins::config::Config;
 
 pub struct GamePlugin;
 
@@ -56,6 +57,7 @@ fn prepare_atlases_and_spawn(
     mut next_state: ResMut<NextState<GameState>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    config: Res<Config>
 ) {
     if atlases.ready {
         return;
@@ -86,6 +88,13 @@ fn prepare_atlases_and_spawn(
 
     atlases.ready = true;
 
+    let player_config = &config.0.player;
+    let player = Player{
+        health: player_config.health,
+        movement: player_config.speed,
+        starting_weapon: player_config.starting_weapon.clone(),
+        ..default()
+    };
     // Player spawn - GameEntity marker ile işaretle
     let player_entity = commands
         .spawn((
@@ -98,11 +107,7 @@ fn prepare_atlases_and_spawn(
                 },
             ),
             Transform::from_xyz(0.0, 0.0, 0.0),
-            Player {
-                health: 100,
-                movement: 200.,
-                ..default()
-            },
+            player,
             Aabb {
                 center: Vec3::ZERO.into(),
                 half_extents: Vec3::new(20., 20., 0.0).into(),
@@ -125,6 +130,7 @@ fn prepare_atlases_and_spawn(
         Vec3::ZERO,
         &mut meshes,
         &mut materials,
+        player_config.starting_weapon.as_str()
     );
     next_state.set(GameState::Playing);
 }

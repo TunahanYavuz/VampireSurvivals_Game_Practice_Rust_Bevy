@@ -1,0 +1,41 @@
+(
+    window: (
+        width: 1280,
+        height: 720,
+        title: "Vampire Survivals Clone",
+        fullscreen: false,
+        resizable: true,
+    ),
+    player: (
+        speed: 300.0,
+        health: 100,
+        starting_weapon: "Flame Thrower",
+    ),
+    enemies: [
+        (
+            name: "Zombie",
+            health: 50,
+            speed: 80.0,
+            damage: 1,
+            spawn_rate: 1.0,
+            xp_drop: 10,
+        ),
+        (
+            name: "Skeleton",
+            health: 75,
+            speed: 120.0,
+            damage: 3,
+            spawn_rate: 0.5,
+            xp_drop: 20,
+
+        ),
+        (
+            name: "Vampire",
+            health: 150,
+            speed: 150.0,
+            damage: 7,
+            spawn_rate: 0.2,
+            xp_drop: 40,
+        ),
+    ]
+)
