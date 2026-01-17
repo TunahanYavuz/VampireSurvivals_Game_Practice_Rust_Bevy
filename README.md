@@ -68,11 +68,9 @@ Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta
 
 ### Teknoloji Stack
 - **Dil**: Rust (Edition 2024)
-- **Oyun Motoru**: Bevy 0.17.3
+- **Oyun Motoru**: Bevy 0.18.0
 - **ECS**: Entity Component System mimarisi
 - **Bağımlılıklar**:
-  - `bevy_ecs` - Entity Component System
-  - `bevy_light` - Işıklandırma sistemi
   - `rand` - Rastgele sayı üretimi
 
 ### Sistem Gereksinimleri
