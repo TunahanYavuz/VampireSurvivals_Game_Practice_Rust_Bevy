@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::ui::Val::Auto;
 use rand::prelude::IndexedRandom;
 use rand::rng;
+use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 
 pub struct UpgradePlugin;
 
@@ -223,7 +224,7 @@ pub fn apply_weapon_upgrade(
         &WeaponStats,
         Option<&mut LaserWeapon>,
         Option<&mut RocketWeapon>,
-        Option<&mut PlayerAddictedWeapon>,
+        Option<(&mut PlayerAddictedWeapon, &mut ParticleEmitter)>,
         Option<&mut RayGunWeapon>,
         Option<&mut SwordWeapon>,
     )>,
@@ -233,6 +234,7 @@ pub fn apply_weapon_upgrade(
     player_q: Query<(Entity, &Transform), With<Player>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     for event in upgrade_events.read() {
         upgrade_choices.waiting_for_choice = false;
@@ -256,6 +258,7 @@ pub fn apply_weapon_upgrade(
                     player_entity.1.translation,
                     &mut meshes,
                     &mut materials,
+                    &asset_server
                 ),
                 WeaponType::Sword => spawn_throwing_weapon(&mut commands, player_entity.0),
             }
@@ -302,8 +305,11 @@ pub fn apply_weapon_upgrade(
                     }
                 }
                 WeaponType::Addicted => {
-                    if let Some(mut addicted_weapon) = addicted {
+                    if let Some((mut addicted_weapon, mut emitter)) = addicted {
                         addicted_weapon.radius = stats.calculate_range(new_level);
+                        if let SpawnMode::Circular { ref mut radius } = emitter.spawn_mode {
+                            *radius = addicted_weapon.radius;
+                        }
                         println!(
                             "Alev silahı yükseltildi! Yeni yarıçap: {}",
                             addicted_weapon.radius

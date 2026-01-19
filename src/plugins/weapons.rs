@@ -5,10 +5,13 @@ use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::weapon_stats::{SwordWeapon, WeaponStats};
+use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{ NoFrustumCulling};
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
+use crate::plugins::weapon_effects::{attach_trail_effect, spawn_explosion_effect, spawn_impact_effects, spawn_muzzle_flash, raygun_spark_config};
+use crate::plugins::weapon_upgrade::WeaponType;
 
 pub struct WeaponPlugin;
 
@@ -126,6 +129,7 @@ pub fn fire_raygun_weapons(
     enemies: Query<(Entity, &Transform), With<Enemy>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     for (mut weapon, mut raygun) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -166,6 +170,7 @@ pub fn fire_raygun_weapons(
 
             let direction = enemy_transform.translation - player_transform.translation;
 
+            // RayGunRay spawn et - electric particle emitter ile birlikte
             commands.spawn((
                 GameEntity,
                 RayGunRay {
@@ -175,8 +180,21 @@ pub fn fire_raygun_weapons(
                 },
                 Mesh2d(meshes.add(create_thick_line_mesh(Vec3::ZERO, direction, 5.0))),
                 MeshMaterial2d(materials.add(ColorMaterial::from(raygun.color))),
-                Transform::from_translation(player_transform.translation.with_z(10.0)),
+                Transform::from_translation(player_transform.translation.with_z(1.0)),
                 GlobalTransform::default(),
+                // Electric particle emitter - çizgi boyunca
+                ParticleEmitter {
+                    enabled: true,
+                    spawn_timer: Timer::from_seconds(0.04, TimerMode::Repeating),
+                    particles_per_spawn: 8,
+                    config: raygun_spark_config(&asset_server),
+                    offset: Vec3::ZERO,
+                    spawn_mode: SpawnMode::Linear {
+                        start_point: Vec3::ZERO,
+                        end_point: direction,
+                    },
+                    lifetime: None,
+                },
             ));
         }
     }
@@ -233,7 +251,7 @@ pub fn cleanup_lifetime_over(
 
 pub fn update_raygun_rays(
     mut raygun_q: Query<
-        (&RayGunRay, &mut Transform, &Mesh2d),
+        (&RayGunRay, &mut Transform, &Mesh2d, &mut ParticleEmitter),
         (With<RayGunRay>, Without<Player>, Without<Enemy>),
     >,
     enemies: Query<&Transform, (With<Enemy>, Without<Player>)>,
@@ -244,11 +262,17 @@ pub fn update_raygun_rays(
         return;
     };
 
-    for (ray, mut ray_transform, mesh_handle) in raygun_q.iter_mut() {
+    for (ray, mut ray_transform, mesh_handle, mut emitter) in raygun_q.iter_mut() {
         ray_transform.translation = player_transform.translation.with_z(10.0);
 
         if let Ok(enemy_transform) = enemies.get(ray.target_entity) {
             let direction = enemy_transform.translation - player_transform.translation;
+
+            // ParticleEmitter'ın end_point'ini güncelle
+            emitter.spawn_mode = SpawnMode::Linear {
+                start_point: Vec3::ZERO,
+                end_point: direction,
+            };
 
             if let Some(mesh) = meshes.get_mut(&mesh_handle.0) {
                 // Kalın çizgi için mesh'i güncelle
@@ -278,10 +302,11 @@ pub fn update_raygun_rays(
 
 pub fn raygun_damage(
     mut raygun_q: Query<(&mut RayGunRay, Entity), With<RayGunRay>>,
-    mut enemies: Query<(Entity, &mut Enemy), (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<(Entity, &mut Enemy, &Transform), (With<Enemy>, Without<Player>)>,
     time: Res<Time>,
     mut commands: Commands,
     mut raygun_weapons: Query<&mut RayGunWeapon, With<RayGunWeapon>>,
+    asset_server: Res<AssetServer>,
 ) {
     // Ölen düşmanları topla
     let mut dead_enemies = Vec::new();
@@ -295,13 +320,21 @@ pub fn raygun_damage(
         }
 
         // Düşman hâlâ var mı kontrol et
-        let Ok((enemy_entity, mut enemy)) = enemies.get_mut(raygun.target_entity) else {
+        let Ok((enemy_entity, mut enemy, enemy_transform)) = enemies.get_mut(raygun.target_entity) else {
             // Düşman yok, ray'i sil
             commands.entity(raygun_entity).despawn();
             continue;
         };
 
         enemy.health = enemy.health.saturating_sub(raygun.damage as i32);
+
+        // Düşman üzerinde spark efekti
+        spawn_impact_effects(
+            &mut commands,
+            enemy_transform.translation,
+            WeaponType::RayGun,
+            &asset_server,
+        );
 
         if enemy.health <= 0 {
             dead_enemies.push(enemy_entity);
@@ -334,6 +367,7 @@ pub fn fire_laser_weapons(
     enemies: Query<&Transform, With<Enemy>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     for (mut weapon, laser) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -353,9 +387,14 @@ pub fn fire_laser_weapons(
         };
 
         let direction = (target_pos - player_transform.translation).normalize();
-
+        spawn_muzzle_flash(
+            &mut commands,
+            player_transform.translation,
+            direction,
+            &asset_server,
+        );
         // Mermi spawn et
-        commands.spawn((
+        let projectile_entity =commands.spawn((
             GameEntity,
             Projectile {
                 direction,
@@ -368,7 +407,8 @@ pub fn fire_laser_weapons(
             MeshMaterial2d(materials.add(ColorMaterial::from(laser.color))),
             Transform::from_translation(player_transform.translation + Vec3::new(0.0, 0.0, 10.0)),
             GlobalTransform::default(),
-        ));
+        )).id();
+        attach_trail_effect(&mut commands, projectile_entity, WeaponType::Laser, &asset_server);
     }
 }
 
@@ -381,6 +421,7 @@ pub fn fire_rocket_weapons(
     enemies: Query<&Transform, With<Enemy>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     for (mut weapon, rocket) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -399,8 +440,15 @@ pub fn fire_rocket_weapons(
 
         let direction = (target_pos - player_transform.translation).normalize();
 
+        spawn_muzzle_flash(
+            &mut commands,
+            player_transform.translation,
+            direction,
+            &asset_server,
+        );
+
         // Roket mermisi spawn et - silah entity'sindeki explosion_radius kullan
-        commands.spawn((
+        let projectile_entity = commands.spawn((
             GameEntity,
             Projectile {
                 direction,
@@ -415,7 +463,8 @@ pub fn fire_rocket_weapons(
             MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(1.0, 0.5, 0.0)))),
             Transform::from_translation(player_transform.translation + Vec3::new(0.0, 0.0, 10.0)),
             GlobalTransform::default(),
-        ));
+        )).id();
+        attach_trail_effect(&mut commands, projectile_entity, WeaponType::Rocket, &asset_server);
     }
 }
 
@@ -437,6 +486,7 @@ pub fn move_player_addicted_weapons(
             &mut Weapon,
             &PlayerAddictedWeapon,
             Entity,
+            &mut ParticleEmitter,
         ),
         With<PlayerAddictedWeapon>,
     >,
@@ -445,7 +495,7 @@ pub fn move_player_addicted_weapons(
     let Ok(player_transform) = player_query.single_mut() else {
         return;
     };
-    for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp, _w_entity) in
+    for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp, _w_entity, mut _emitter) in
         player_addicted_weapon.iter_mut()
     {
         // Pozisyonu takip et
@@ -481,6 +531,7 @@ pub fn move_projectiles(
     mut enemies: Query<(&mut Transform, &mut Enemy, &mut Aabb), Without<Projectile>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     for (proj_entity, mut proj_transform, mut projectile) in projectiles.iter_mut() {
         // Hareketi uygula
@@ -503,6 +554,14 @@ pub fn move_projectiles(
                         enemy_transform.translation += projectile.direction * 10.;
                         // Hasar
                         enemy.health = enemy.health.saturating_sub(projectile.damage as i32);
+
+                        spawn_impact_effects(
+                            &mut commands,
+                            proj_transform.translation,
+                            WeaponType::Laser,
+                            &asset_server,
+                        );
+
                         // Mermi yok et
                         commands.entity(proj_entity).try_despawn();
                         // Düşman öldüyse
@@ -526,17 +585,23 @@ pub fn move_projectiles(
                 // Eğer patlama olduysa, patlama yarıçapındaki TÜM düşmanlara hasar ver
                 if let Some(explosion_center) = explosion_pos {
                     // Patlama görselini oluştur
-                    commands.spawn((
-                        GameEntity,
-                        Mesh2d(meshes.add(Circle::new(*explosion_radius))),
-                        MeshMaterial2d(
-                            materials.add(ColorMaterial::from(Color::srgba(1.0, 0.1, 0.0, 0.3))),
-                        ),
-                        Transform::from_translation(explosion_center),
-                        Explosion {
-                            lifetime: Timer::from_seconds(0.2, TimerMode::Once),
-                        },
-                    ));
+                    spawn_explosion_effect(
+                        &mut commands,
+                        explosion_center,
+                        *explosion_radius,
+                        &asset_server,
+                    );
+                    // commands.spawn((
+                    //     GameEntity,
+                    //     Mesh2d(meshes.add(Circle::new(*explosion_radius))),
+                    //     MeshMaterial2d(
+                    //         materials.add(ColorMaterial::from(Color::srgba(1.0, 0.1, 0.0, 0.3))),
+                    //     ),
+                    //     Transform::from_translation(explosion_center),
+                    //     Explosion {
+                    //         lifetime: Timer::from_seconds(0.2, TimerMode::Once),
+                    //     },
+                    // ));
 
                     // Tüm düşmanları tekrar tara ve patlama yarıçapındakilere hasar ver
                     for (mut enemy_transform, mut enemy, _enemy_aabb) in enemies.iter_mut() {
@@ -578,6 +643,7 @@ pub fn throw_swords(
     window: Single<&Window>,
     camera: Query<(&Camera, &GlobalTransform)>,
     textures: Res<TextureAssets>,
+    asset_server: Res<AssetServer>,
 ) {
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
@@ -602,7 +668,7 @@ pub fn throw_swords(
             direction = sword.last_direction;
         }
         sword.last_direction = direction;
-        commands.spawn((
+        let projectile_entity = commands.spawn((
             GameEntity,
             SwordProjectile {
                 angle: 0.0,
@@ -622,7 +688,13 @@ pub fn throw_swords(
                 ..default()
             },
             Transform::from_translation(player.1.translation),
-        ));
+        )).id();
+        attach_trail_effect(
+            &mut commands,
+            projectile_entity,
+            WeaponType::Sword,
+            &asset_server,
+        )
     }
 }
 
@@ -634,6 +706,7 @@ pub fn move_swords(
         (With<SwordProjectile>, Without<Enemy>),
     >,
     mut enemies: Query<(Entity, &mut Enemy, &mut Aabb, &mut Transform), (With<Enemy>, Without<SwordProjectile>)>,
+    asset_server: Res<AssetServer>,
 ) {
     for (sword_entity, mut sword_transform, mut sword, mut sword_aabb) in swords.iter_mut() {
         // Ömür kontrolü
@@ -646,7 +719,7 @@ pub fn move_swords(
         sword_transform.translation += sword.direction * sword.speed * time.delta_secs();
         sword_aabb.center = sword_transform.translation.to_vec3a();
         // Döndürme efekti
-        sword.angle += 20.0 * time.delta_secs();
+        sword.angle += 13.0 * time.delta_secs();
         sword_transform.rotation = Quat::from_rotation_z(sword.angle);
 
         for (enemy_entity, mut enemy, mut aabb, mut transform) in enemies.iter_mut() {
@@ -657,11 +730,19 @@ pub fn move_swords(
                 transform.translation += sword.direction * 10.0;
                 aabb.center = transform.translation.to_vec3a();
                 sword.hit_enemies.push(enemy_entity);
+                spawn_impact_effects(
+                    &mut commands,
+                    sword_transform.translation,
+                    WeaponType::Sword,
+                    &asset_server,
+                );
                 break;
             }
         }
     }
 }
+
+
 
 // Yardımcı fonksiyon - en yakın düşmanı bul
 fn find_nearest_enemy(position: Vec3, enemies: &Query<&Transform, With<Enemy>>) -> Option<Vec3> {

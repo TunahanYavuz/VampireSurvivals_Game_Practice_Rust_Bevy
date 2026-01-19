@@ -4,7 +4,8 @@ use crate::plugins::weapons::{
     LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon,
 };
 use bevy::prelude::*;
-
+use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
+use crate::plugins::weapon_effects::flame_config;
 #[derive(Component)]
 pub struct WeaponStats {
     pub base_damage: f32,
@@ -39,11 +40,12 @@ pub fn spawn_weapons_for_player(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
     weapon_name: &str,
+    asset_server: &AssetServer
 ) {
     println!("Spawning weapon for player!");
     match weapon_name {
         "Flame Thrower" => {
-            spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials);
+            spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials, asset_server);
         }
         "Laser Gun" => {
             spawn_lazer_weapon(commands, player_entity);
@@ -120,8 +122,8 @@ pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity) {
         GameEntity,
         Weapon {
             owner: player_entity,
-            damage: 10.0,
-            fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+            damage: 1.0,
+            fire_timer: Timer::from_seconds(0.5, TimerMode::Repeating),
             speed: 0.0,
         },
         RayGunWeapon::default(),
@@ -130,7 +132,7 @@ pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity) {
             weapon_type: WeaponType::RayGun,
         },
         WeaponStats {
-            base_damage: 10.0,
+            base_damage: 1.0,
             base_fire_rate: 0.1,
             base_speed: 0.0,
             base_range: 0.0,
@@ -144,11 +146,14 @@ pub fn spawn_flame_weapon(
     _player_pos: Vec3,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
+    asset_server: &AssetServer
 ) {
     let base_range = 75.0;
+    let flame_radius = 80.0;
+
     commands.spawn((
         GameEntity,
-        Mesh2d(meshes.add(Annulus::new(0.3, 1.0))),
+        Mesh2d(meshes.add(Annulus::new(0.8, 1.0))),
         MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(0.89, 0.35, 0.13, 0.75)))),
         PlayerAddictedWeapon { radius: base_range },
         Weapon {
@@ -166,6 +171,16 @@ pub fn spawn_flame_weapon(
             base_fire_rate: 0.1,
             base_speed: 0.0,
             base_range: base_range,
+        },
+        // Flame particle emitter - dairesel spawn
+        ParticleEmitter {
+            enabled: true,
+            spawn_timer: Timer::from_seconds(0.03, TimerMode::Repeating),
+            particles_per_spawn: 30,
+            config: flame_config(asset_server),
+            offset: Vec3::ZERO,
+            spawn_mode: SpawnMode::Circular { radius: flame_radius },
+            lifetime: None,
         },
         Transform {
             translation: _player_pos,

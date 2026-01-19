@@ -14,3 +14,5 @@ pub mod ground;
 pub mod audio;
 pub mod main_menu;
 pub mod config;
+pub mod particle_effects;
+pub mod weapon_effects;

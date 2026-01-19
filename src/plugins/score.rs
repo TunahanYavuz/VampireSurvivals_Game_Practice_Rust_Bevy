@@ -8,6 +8,7 @@ impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameScore>()
             .add_systems(Startup, setup_score_ui)
+            .add_systems(OnEnter(GameState::Playing), visible_score_ui)
             .add_systems(Update, update_score_ui.run_if(in_state(GameState::Playing)));
     }
 }
@@ -30,6 +31,7 @@ pub fn setup_score_ui(mut commands: Commands) {
             border_radius: BorderRadius::all(Val::Px(10.0)),
             ..default()
         },
+        Visibility::Hidden,
         Outline {
             width: Val::Px(2.0),
             offset: Val::Px(0.0),
@@ -45,5 +47,10 @@ pub fn update_score_ui(player: Single<&Player>, mut query: Query<&mut Text, With
             "Score: {}\nXP:{}\nXP to next level:{}\nPlayer HP: {}",
             player.score, player.xp, player.xp_to_next_level, player.health
         );
+    }
+}
+fn visible_score_ui(mut query: Query<&mut Visibility, With<ScoreText>>) {
+    for mut visibility in query.iter_mut() {
+        *visibility = Visibility::Visible;
     }
 }

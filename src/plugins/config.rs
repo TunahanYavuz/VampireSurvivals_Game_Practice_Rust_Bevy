@@ -50,16 +50,20 @@ pub struct ConfigPlugin;
 impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
         let config = load_config();
-        app.add_plugins(DefaultPlugins.set(WindowPlugin{
-            primary_window: Some(Window{
-                title: config.window.title.clone(),
-                resolution: WindowResolution::new(config.window.width, config.window.height),
-                fullsize_content_view: config.window.fullscreen,
-                resizable: config.window.resizable,
-                ..default()
-            }),
-            ..default()
-        })).insert_resource(Config(config));
+        app
+            .add_plugins(DefaultPlugins.set(
+                WindowPlugin{
+                    primary_window: Some(Window{
+                        title: config.window.title.clone(),
+                        resolution: WindowResolution::new(config.window.width, config.window.height),
+                        fullsize_content_view: config.window.fullscreen,
+                        resizable: config.window.resizable,
+                        ..default()
+                    }),
+                    ..default()
+                }
+            )
+            .set(ImagePlugin::default_nearest())).insert_resource(Config(config));
     }
     
 }

@@ -44,7 +44,8 @@ pub struct Atlases {
 }
 
 fn minimal_setup(mut commands: Commands) {
-    commands.spawn((Camera2d, Camera { ..default() }));
+    commands.spawn((Camera2d, Camera { ..default() },
+        Msaa::Sample8,));
 }
 
 fn prepare_atlases_and_spawn(
@@ -130,7 +131,8 @@ fn prepare_atlases_and_spawn(
         Vec3::ZERO,
         &mut meshes,
         &mut materials,
-        player_config.starting_weapon.as_str()
+        player_config.starting_weapon.as_str(),
+        &asset_server
     );
     next_state.set(GameState::Playing);
 }

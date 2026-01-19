@@ -1,4 +1,3 @@
-use crate::plugins::aabb::AABB;
 use crate::plugins::audio::{GameAudio, GameAudioEntity};
 use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Collectible, Enemy, XP};

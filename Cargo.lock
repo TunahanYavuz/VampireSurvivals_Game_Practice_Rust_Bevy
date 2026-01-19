@@ -2452,6 +2452,8 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "rand",
+ "ron",
+ "serde",
 ]
 
 [[package]]
