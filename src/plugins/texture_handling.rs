@@ -1,32 +1,38 @@
+use std::collections::HashMap;
 use bevy::asset::Handle;
 use bevy::image::Image;
 use bevy::prelude::{AssetServer, FromWorld, Resource, World};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextureType {
+    Body,
+    Shield,
+    Zombie,
+    Knight,
+    Wizard,
+    Elf,
+    Robot,
+    Sword,
+}
+
 #[derive(Resource)]
 pub struct TextureAssets {
-    pub body: Handle<Image>,
-    pub shield: Handle<Image>,
-    pub zombie: Handle<Image>,
-    pub knight: Handle<Image>,
-    pub wizard: Handle<Image>,
-    pub elf: Handle<Image>,
-    pub robot: Handle<Image>,
-    pub sword: Handle<Image>,
+    pub textures: HashMap<TextureType, Handle<Image>>,
 }
 impl FromWorld for TextureAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world
             .get_resource::<AssetServer>()
             .expect("AssetServer resource not found.");
-        Self {
-            body: asset_server.load("BODY_skeleton.png"),
-            shield: asset_server.load("WEAPON_shield_cutout_body.png"),
-            zombie: asset_server.load("zombie.png"),
-            knight: asset_server.load("knight.png"),
-            wizard: asset_server.load("wizard.png"),
-            elf: asset_server.load("elf.png"),
-            robot: asset_server.load("robot1.png"),
-            sword: asset_server.load("sword.png"),
-        }
+        let mut textures = HashMap::new();
+        textures.insert(TextureType::Body, asset_server.load("sprites/BODY_skeleton.png"));
+        textures.insert(TextureType::Shield, asset_server.load("sprites/WEAPON_shield_cutout_body.png"));
+        textures.insert(TextureType::Zombie, asset_server.load("sprites/zombie.png"));
+        textures.insert(TextureType::Knight, asset_server.load("sprites/knight.png"));
+        textures.insert(TextureType::Wizard, asset_server.load("sprites/wizard.png"));
+        textures.insert(TextureType::Elf, asset_server.load("sprites/elf.png"));
+        textures.insert(TextureType::Robot, asset_server.load("sprites/robot1.png"));
+        textures.insert(TextureType::Sword, asset_server.load("sprites/sword.png"));
+        Self { textures }
     }
 }

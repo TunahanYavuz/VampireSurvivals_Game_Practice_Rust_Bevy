@@ -3,8 +3,8 @@ use crate::plugins::common::{GameEntity, aabb_intersects, contains_point};
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
-use crate::plugins::texture_handling::TextureAssets;
-use crate::plugins::weapon_stats::{SwordWeapon, WeaponStats};
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
+use crate::plugins::weapon_stats::{SwordWeapon, Throwable, WeaponStats};
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{ NoFrustumCulling};
@@ -529,8 +529,6 @@ pub fn move_projectiles(
     time: Res<Time>,
     mut projectiles: Query<(Entity, &mut Transform, &mut Projectile), With<Projectile>>,
     mut enemies: Query<(&mut Transform, &mut Enemy, &mut Aabb), Without<Projectile>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     for (proj_entity, mut proj_transform, mut projectile) in projectiles.iter_mut() {
@@ -638,8 +636,8 @@ pub struct SwordProjectile {
 pub fn throw_swords(
     mut commands: Commands,
     time: Res<Time>,
-    player: Single<(&Player, &Transform), (With<Player>, Without<SwordWeapon>)>,
-    mut sword: Query<(&mut SwordWeapon, &mut Weapon), (With<SwordWeapon>, Without<Player>)>,
+    player: Single<(&Player, &Transform), (With<Player>, Without<Throwable>)>,
+    mut sword: Query<(&mut Throwable, &mut Weapon), (With<Throwable>, Without<Player>)>,
     window: Single<&Window>,
     camera: Query<(&Camera, &GlobalTransform)>,
     textures: Res<TextureAssets>,
@@ -684,7 +682,7 @@ pub fn throw_swords(
             },
             NoFrustumCulling,
             Sprite {
-                image: textures.sword.clone(),
+                image: textures.textures.get(&TextureType::Sword).unwrap().clone(),
                 ..default()
             },
             Transform::from_translation(player.1.translation),

@@ -110,7 +110,7 @@ impl UpgradeChoices {
                 weapon_type: WeaponType::Sword,
                 name: "Kılıç Silahı Güçlendir".to_string(),
                 description: "Hasar +5, Adet +2".to_string(),
-                icon: Some(asset_server.load("sword.png")),
+                icon: Some(asset_server.load("sprites/sword.png")),
             },
         ];
         let mut rng = rng();
@@ -186,7 +186,7 @@ pub fn show_upgrade_choices_on_level_up(
                                 color: Color::srgba(0.0, 0.0, 0.0, 0.8),
                             },
 
-                            ));
+                        ));
                     }
                 });
             });

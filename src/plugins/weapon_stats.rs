@@ -191,20 +191,20 @@ pub fn spawn_flame_weapon(
 }
 
 #[derive(Component)]
-pub struct Throwable;
-
-#[derive(Component)]
-pub struct SwordWeapon {
+pub struct Throwable{
     pub last_direction: Vec3,
 }
+
+#[derive(Component)]
+pub struct SwordWeapon;
 
 pub fn spawn_throwing_weapon(commands: &mut Commands, player_entity: Entity) {
     commands.spawn((
         GameEntity,
-        Throwable,
-        SwordWeapon {
+        Throwable{
             last_direction: Vec3::X,
         },
+        SwordWeapon ,
         Weapon {
             owner: player_entity,
             damage: 75.0,

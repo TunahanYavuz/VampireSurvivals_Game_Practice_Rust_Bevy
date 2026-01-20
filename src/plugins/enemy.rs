@@ -3,7 +3,7 @@ use crate::plugins::common::{GameEntity, aabb_intersects};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
-use crate::plugins::texture_handling::TextureAssets;
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
 use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
@@ -47,7 +47,7 @@ pub struct Enemy {
 #[derive(Resource)]
 pub struct EnemyPowerUpTimer {
     pub timer: Timer,
-    pub level: i32,
+    pub level: usize,
 }
 
 impl Default for EnemyPowerUpTimer {
@@ -217,34 +217,29 @@ pub fn spawn_enemies(
         if let Some(body_rect) = body_lay.textures.get(0) {
             let b_width = body_rect.width() as f32 / 2. - 10.;
             let b_height = body_rect.height() as f32 / 2. - 10.;
+            let ref texture_type = match level {
+                1 => TextureType::Zombie,
+                2 => TextureType::Robot,
+                3 => TextureType::Elf,
+                4 => TextureType::Wizard,
+                5 => TextureType::Knight,
+                _ => TextureType::Robot };
             let (spirit, enemy) = match level {
-                1 =>
+                n@ (0..=2)  =>
                     (Sprite::from_atlas_image(
-                    textures.robot.clone(),
+                    textures.textures.get(texture_type).unwrap().clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
                     },
                 ),Enemy{
-                    health: enemies[0].health,
-                    damage: enemies[0].damage,
-                    speed: enemies[0].speed,
-                    xp_drop: enemies[0].xp_drop,
-                }),
-                2 => (Sprite::from_atlas_image(
-                    textures.wizard.clone(),
-                    TextureAtlas {
-                        layout: body_atlas,
-                        index: 15,
-                    },
-                ),Enemy{
-                    health: enemies[1].health,
-                    damage: enemies[1].damage,
-                    speed: enemies[1].speed,
-                    xp_drop: enemies[1].xp_drop,
+                    health: enemies[n].health,
+                    damage: enemies[n].damage,
+                    speed: enemies[n].speed,
+                    xp_drop: enemies[n].xp_drop,
                 }),
                 _ => (Sprite::from_atlas_image(
-                    textures.elf.clone(),
+                    textures.textures.get(texture_type).unwrap().clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
@@ -268,14 +263,13 @@ pub fn spawn_enemies(
                         half_extents: Vec3::new(b_width, b_height, 0.0).into(),
                     },
                     NoAutoAabb,
-                    //AABB { max_x: x + b_width, max_y: y + b_height, min_x: x - b_width, min_y: y - b_height, width: b_width * 2., height: b_height * 2. },
                 ))
                 .with_children(|parent| {
                     parent.spawn((spirit, EnemySprit { index: 0 }));
 
                     parent.spawn((
                         Sprite::from_atlas_image(
-                            textures.shield.clone(),
+                            textures.textures.get(&TextureType::Shield).unwrap().clone(),
                             TextureAtlas {
                                 layout: shield_atlas,
                                 index: 15,

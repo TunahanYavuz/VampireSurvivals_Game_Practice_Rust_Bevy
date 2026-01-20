@@ -3,7 +3,7 @@ use crate::plugins::enemy::EnemyPowerUpTimer;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::score::GameScore;
-use crate::plugins::texture_handling::TextureAssets;
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::{EnemySpawnTimer, MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use bevy::camera::primitives::Aabb;
@@ -64,15 +64,13 @@ fn prepare_atlases_and_spawn(
         return;
     }
 
-    if !asset_server.load_state(&textures.body).is_loaded()
-        || !asset_server.load_state(&textures.shield).is_loaded()
-        || !asset_server.load_state(&textures.zombie).is_loaded()
-        || !asset_server.load_state(&textures.knight).is_loaded()
-    {
+    let all_loaded = textures.textures.values().all(|handle|{
+        asset_server.load_state(handle).is_loaded()
+    });
+    if !all_loaded {
         return;
     }
-
-    let image = match images.get(&textures.body) {
+    let image = match images.get(&textures.textures.get(&TextureType::Body).unwrap().clone()) {
         Some(img) => img,
         None => return,
     };
@@ -101,7 +99,7 @@ fn prepare_atlases_and_spawn(
         .spawn((
             GameEntity,
             Sprite::from_atlas_image(
-                textures.body.clone(),
+                textures.textures.get(&TextureType::Body).unwrap().clone(),
                 TextureAtlas {
                     layout: body_atlas,
                     index: 0,

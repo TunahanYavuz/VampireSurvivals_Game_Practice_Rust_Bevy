@@ -67,7 +67,6 @@ impl Player {
                 if self.health > 0 {
                     self.health = self.health.saturating_sub(enemy.damage as u32);
                 }
-                println!("{:?}", self.health);
             }
         }
         if self.health == 0 {
@@ -96,7 +95,6 @@ impl Player {
             ));
 
             message_writer.write(LevelUpEvent { level: self.level });
-            println!("🎉 LEVEL UP! Level: {}", self.level);
             next_state.set(GameState::UpgradeSelection);
         }
     }
