@@ -8,6 +8,7 @@ use crate::plugins::ground::GroundPlugin;
 use crate::plugins::main_menu::MainMenuPlugin;
 use crate::plugins::particle_effects::ParticlePlugin;
 use crate::plugins::player::PlayerPlugin;
+use crate::plugins::reinforcements::ReinforcementsPlugin;
 use crate::plugins::score::ScorePlugin;
 use crate::plugins::timers::TimerPlugin;
 use crate::plugins::weapon_effects::WeaponEffectPlugin;
@@ -22,6 +23,7 @@ fn main() {
         .add_plugins((
                 ConfigPlugin,
                 GamePlugin,
+                ReinforcementsPlugin,
                 PlayerPlugin,
                 EnemyPlugin,
                 WeaponPlugin,

@@ -20,7 +20,6 @@ impl Plugin for PlayerPlugin {
                 move_player,
                 sync_camera.after(move_player),
                 reduce_player_health,
-                collect_xp,
                 collect_xp_with_magnet,
                 magnetite_xp_to_player,
             )
@@ -100,29 +99,7 @@ impl Player {
     }
 }
 
-pub fn collect_xp(
-    mut player_query: Query<(&mut Player, &Aabb), With<Player>>,
-    mut xp_query: Query<(&Aabb, &Collectible, &XP, Entity)>,
-    mut commands: Commands,
-    mut level_up_events: MessageWriter<LevelUpEvent>,
-    mut next_state: ResMut<NextState<GameState>>,
-    audio: Res<GameAudio>,
-) {
-    for (mut player, player_aabb) in player_query.iter_mut() {
-        for (xp_aabb, _collectible, xp, entity) in xp_query.iter_mut() {
-            if aabb_intersects(xp_aabb, player_aabb) {
-                player.gain_xp(
-                    xp.amount as f32,
-                    &mut level_up_events,
-                    &mut next_state,
-                    &mut commands,
-                    &audio,
-                );
-                commands.entity(entity).despawn();
-            }
-        }
-    }
-}
+
 
 #[derive(Component)]
 pub struct XPMagnetite;

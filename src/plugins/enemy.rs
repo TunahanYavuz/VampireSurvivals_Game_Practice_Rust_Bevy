@@ -17,6 +17,7 @@ use bevy::time::TimerMode;
 use rand::Rng;
 use std::f32::consts::PI;
 use crate::plugins::config::Config;
+use crate::plugins::reinforcements::spawn_reinforcement;
 
 pub struct EnemyPlugin;
 
@@ -61,6 +62,7 @@ impl Default for EnemyPowerUpTimer {
 
 #[derive(Component)]
 pub struct XP {
+    pub is_collected: bool,
     pub amount: i32,
 }
 
@@ -86,34 +88,17 @@ fn despawn_enemies(
         }
 
         commands.spawn((
-            GameEntity,
-            Collectible,
-            XP {
-                amount: enemy.xp_drop,
-            },
-            Transform::from_translation(transform.translation),
-            // AABB{
-            //     max_x: translation.x + 20.,
-            //     max_y: translation.y + 20.,
-            //     min_x: translation.x - 20.,
-            //     min_y: translation.y - 20.,
-            //     width: 20.,
-            //     height: 20.,
-            // },
-            Aabb {
-                center: transform.translation.to_vec3a(),
-                half_extents: Vec3A::new(40.0, 40.0, 1.0),
-            },
-            NoAutoAabb,
-            NoFrustumCulling,
-            Mesh2d(meshes.add(Circle::new(5.0))),
-            MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
-        ));
-        commands.spawn((
             AudioPlayer(audio.enemy_hit.clone()),
             PlaybackSettings::DESPAWN,
         ));
 
+        spawn_reinforcement(
+            &mut commands,
+            transform.translation,
+            enemy.xp_drop,
+            &mut meshes,
+            &mut materials,
+        );
         commands.entity(enemy_entity).try_despawn();
         player.score += 1;
     }
