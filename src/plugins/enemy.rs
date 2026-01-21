@@ -8,14 +8,14 @@ use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
 use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
-use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
-use bevy::color::Color;
+use bevy::camera::visibility::{NoAutoAabb, };
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
-use bevy::mesh::{Mesh, Mesh2d};
+use bevy::mesh::{Mesh};
 use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
 use std::f32::consts::PI;
+use strum::EnumCount;
 use crate::plugins::config::Config;
 use crate::plugins::reinforcements::spawn_reinforcement;
 
@@ -29,10 +29,11 @@ impl Plugin for EnemyPlugin {
                 Update,
                 (
                     spawn_enemies,
-                    despawn_enemies,
                     follow,
                     enemy_collision_with_enemy,
+                    despawn_enemies,
                 )
+                    .chain()
                     .run_if(in_state(GameState::Playing)),
             );
     }
@@ -44,6 +45,21 @@ pub struct Enemy {
     pub speed: f32,
     pub damage: i32,
     pub xp_drop: i32,
+    pub should_despawn: bool,
+    pub drops_loot: bool,
+}
+
+impl Default for Enemy {
+    fn default() -> Self {
+        Self {
+            health: 100,
+            speed: 50.0,
+            damage: 10,
+            xp_drop: 10,
+            should_despawn: false,
+            drops_loot: true,
+        }
+    }
 }
 #[derive(Resource)]
 pub struct EnemyPowerUpTimer {
@@ -76,14 +92,18 @@ pub struct EnemySprit {
 
 fn despawn_enemies(
     mut commands: Commands,
-    enemy_query: Query<(Entity, &Enemy, &Transform), With<Enemy>>,
+    mut enemy_query: Query<(Entity, &mut Enemy, &Transform), With<Enemy>>,
     mut player: Single<&mut Player>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     audio: Res<GameAudio>,
 ) {
-    for (enemy_entity, enemy, transform) in enemy_query.iter() {
-        if enemy.health > 0 {
+    for (enemy_entity, mut enemy, transform) in enemy_query.iter_mut() {
+        if enemy.health <= 0 && !enemy.should_despawn {
+            enemy.should_despawn = true;
+        }
+
+        if !enemy.should_despawn {
             continue;
         }
 
@@ -92,14 +112,19 @@ fn despawn_enemies(
             PlaybackSettings::DESPAWN,
         ));
 
-        spawn_reinforcement(
-            &mut commands,
-            transform.translation,
-            enemy.xp_drop,
-            &mut meshes,
-            &mut materials,
-        );
-        commands.entity(enemy_entity).try_despawn();
+        if enemy.drops_loot {
+            spawn_reinforcement(
+                &mut commands,
+                transform.translation,
+                enemy.xp_drop,
+                &mut meshes,
+                &mut materials,
+            );
+        }
+
+        if let Ok(mut entity_commands) = commands.get_entity(enemy_entity) {
+            entity_commands.despawn();
+        }
         player.score += 1;
     }
 }
@@ -202,17 +227,15 @@ pub fn spawn_enemies(
         if let Some(body_rect) = body_lay.textures.get(0) {
             let b_width = body_rect.width() as f32 / 2. - 10.;
             let b_height = body_rect.height() as f32 / 2. - 10.;
-            let ref texture_type = match level {
-                1 => TextureType::Zombie,
-                2 => TextureType::Robot,
-                3 => TextureType::Elf,
-                4 => TextureType::Wizard,
-                5 => TextureType::Knight,
-                _ => TextureType::Robot };
+            let texture_type = if let Some(texture_type) = TextureType::from_repr(level+1) && level <= TextureType::COUNT-2 {
+                texture_type
+            } else {
+                TextureType::Robot
+            };
             let (spirit, enemy) = match level {
                 n@ (0..=2)  =>
                     (Sprite::from_atlas_image(
-                    textures.textures.get(texture_type).unwrap().clone(),
+                    textures.textures.get(&texture_type).unwrap().clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
@@ -222,9 +245,11 @@ pub fn spawn_enemies(
                     damage: enemies[n].damage,
                     speed: enemies[n].speed,
                     xp_drop: enemies[n].xp_drop,
+                    should_despawn: false,
+                    drops_loot: true,
                 }),
                 _ => (Sprite::from_atlas_image(
-                    textures.textures.get(texture_type).unwrap().clone(),
+                    textures.textures.get(&texture_type).unwrap().clone(),
                     TextureAtlas {
                         layout: body_atlas,
                         index: 15,
@@ -234,6 +259,8 @@ pub fn spawn_enemies(
                     damage: enemies[2].damage,
                     speed: enemies[2].speed,
                     xp_drop: enemies[2].xp_drop,
+                    should_despawn: false,
+                    drops_loot: true,
                 }),
             };
 

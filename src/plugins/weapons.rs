@@ -4,7 +4,7 @@ use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use crate::plugins::weapon_stats::{SwordWeapon, Throwable, WeaponStats};
+use crate::plugins::weapon_stats::{Throwable, WeaponStats};
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{ NoFrustumCulling};

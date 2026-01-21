@@ -1,6 +1,6 @@
 use crate::plugins::audio::{GameAudio, GameAudioEntity};
 use crate::plugins::common::aabb_intersects;
-use crate::plugins::enemy::{Collectible, Enemy, XP};
+use crate::plugins::enemy::{Enemy, XP};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer};
@@ -31,8 +31,10 @@ impl Plugin for PlayerPlugin {
 #[derive(Component)]
 pub struct Player {
     pub health: u32,
+    pub max_health: u32,
     pub score: u32,
     pub movement: f32,
+    #[warn(unused)]
     pub starting_weapon: String,
     pub xp: f32,
     pub level: i32,
@@ -43,6 +45,7 @@ impl Default for Player {
     fn default() -> Self {
         Self {
             health: 100,
+            max_health: 100,
             score: 0,
             movement: 200.,
             starting_weapon: "Flame Thrower".to_string(),

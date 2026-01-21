@@ -90,6 +90,7 @@ fn prepare_atlases_and_spawn(
     let player_config = &config.0.player;
     let player = Player{
         health: player_config.health,
+        max_health: player_config.max_health,
         movement: player_config.speed,
         starting_weapon: player_config.starting_weapon.clone(),
         ..default()

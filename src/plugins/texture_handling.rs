@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use bevy::asset::Handle;
 use bevy::image::Image;
 use bevy::prelude::{AssetServer, FromWorld, Resource, World};
+use strum::{EnumCount, FromRepr};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumCount, FromRepr)]
 pub enum TextureType {
     Body,
     Shield,

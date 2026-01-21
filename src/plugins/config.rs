@@ -24,6 +24,7 @@ pub struct WindowConfig{
 pub struct PlayerConfig{
     pub speed: f32,
     pub health: u32,
+    pub max_health: u32,
     pub starting_weapon: String,
 }
 
