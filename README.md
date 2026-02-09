@@ -69,9 +69,11 @@ Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta
 ### Teknoloji Stack
 - **Dil**: Rust (Edition 2024)
 - **Oyun Motoru**: Bevy 0.18.0
+- **Fizik Motoru**: Rapier2D 0.28.0 (yeni eklendi!)
 - **ECS**: Entity Component System mimarisi
 - **Bağımlılıklar**:
   - `rand` - Rastgele sayı üretimi
+  - `bevy_rapier2d` - 2D fizik simülasyonu
 
 ### Sistem Gereksinimleri
 - **OS**: Windows 10/11, Linux, macOS
@@ -149,6 +151,46 @@ Bu proje aktif olarak geliştirilmektedir. Gelecek sürümlerdeki olası iyileş
 - Başarım sistemi
 - Kayıt/yükleme sistemi
 - Çoklu oyuncu karakter seçenekleri
+
+## 🎆 YENİ: Rapier Fizik Tabanlı Efekt Sistemi
+
+Proje artık **Rapier** fizik motoru ile entegre gelişmiş efekt sistemi içeriyor!
+
+### Özellikler:
+- 🔥 **Fiziksel Parçacıklar**: Gerçekçi çarpışma, yerçekimi ve sürtünme
+- 💥 **Patlama Efektleri**: Radyal kuvvet dalgaları
+- ⚡ **Çarpışma Tetikleyicileri**: Otomatik efekt oluşturma
+- 🎨 **Hazır Preset'ler**: Ateş, kıvılcım, duman, enkaz efektleri
+
+### Kullanım:
+
+Detaylı dokümantasyon için: [**RAPIER_EFFECTS_GUIDE.md**](RAPIER_EFFECTS_GUIDE.md)
+
+**Hızlı Başlangıç:**
+```rust
+use crate::plugins::rapier_effects::{spawn_explosion_effect, presets};
+
+// Patlama efekti oluştur
+let config = presets::fire_particle_config(&asset_server);
+spawn_explosion_effect(
+    &mut commands,
+    &asset_server,
+    position,
+    150.0,   // yarıçap
+    3000.0,  // kuvvet
+    24,      // parçacık sayısı
+    &config,
+);
+```
+
+**Demo Mod:**
+Oyun içinde demo efektleri test etmek için:
+- `E` - Patlama efekti
+- `F` - Ateş parçacıkları
+- `S` - Kıvılcım efekti
+- `D` - Duman efekti
+- `R` - Enkaz parçacıkları
+- `Space` - Fiziksel top (çarpışma efektli)
 
 ## 🤝 Katkıda Bulunma
 

@@ -1,6 +1,0 @@
-/home/runner/work/VampireSurvivals_Game_Practice_Rust_Bevy/VampireSurvivals_Game_Practice_Rust_Bevy/target/debug/deps/byteorder_lite-02e4126e9870647b.d: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/src/io.rs
-
-/home/runner/work/VampireSurvivals_Game_Practice_Rust_Bevy/VampireSurvivals_Game_Practice_Rust_Bevy/target/debug/deps/libbyteorder_lite-02e4126e9870647b.rmeta: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/src/io.rs
-
-/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/src/lib.rs:
-/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/src/io.rs:
