@@ -9,6 +9,7 @@ use crate::plugins::main_menu::MainMenuPlugin;
 use crate::plugins::particle_effects::ParticlePlugin;
 use crate::plugins::player::PlayerPlugin;
 use crate::plugins::reinforcements::ReinforcementsPlugin;
+use crate::plugins::rapier_effects::RapierEffectsPlugin;
 use crate::plugins::score::ScorePlugin;
 use crate::plugins::timers::TimerPlugin;
 use crate::plugins::weapon_effects::WeaponEffectPlugin;
@@ -23,6 +24,7 @@ fn main() {
         .add_plugins((
                 ConfigPlugin,
                 GamePlugin,
+                RapierEffectsPlugin, // Rapier physics + efektler
                 ReinforcementsPlugin,
                 PlayerPlugin,
                 EnemyPlugin,

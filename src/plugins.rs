@@ -16,3 +16,5 @@ pub mod config;
 pub mod particle_effects;
 pub mod weapon_effects;
 pub mod reinforcements;
+pub mod rapier_effects;
+pub mod rapier_effects_demo;
