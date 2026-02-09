@@ -6,7 +6,7 @@
 3. [Kurulum ve Yapılandırma](#kurulum-ve-yapılandırma)
 4. [Kullanım Örnekleri](#kullanım-örnekleri)
 5. [API Referansı](#api-referansı)
-6. [İleri Düzey Özellikler](#i̇leri-düzey-özellikler)
+6. [İleri Düzey Özellikler](#ileri-düzey-özellikler)
 
 ## Giriş
 

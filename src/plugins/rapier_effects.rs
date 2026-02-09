@@ -16,9 +16,13 @@ impl Plugin for RapierEffectsPlugin {
     fn build(&self, app: &mut App) {
         app
             // Rapier physics plugin
-            .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-            // Debug render için (opsiyonel, geliştirme sırasında kullanışlı)
-            .add_plugins(RapierDebugRenderPlugin::default())
+            .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0));
+        
+        // Debug render sadece development modda
+        #[cfg(debug_assertions)]
+        app.add_plugins(RapierDebugRenderPlugin::default());
+        
+        app
             // Sistemler
             .add_systems(
                 Update,

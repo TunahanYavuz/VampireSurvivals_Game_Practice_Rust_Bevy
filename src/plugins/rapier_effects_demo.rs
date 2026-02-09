@@ -146,16 +146,7 @@ fn spawn_physics_ball_with_collision_effect(
 }
 
 /// Otomatik patlama efekti oluşturucu (demo amaçlı)
-/// Her 5 saniyede bir rastgele pozisyonda patlama oluşturur
-#[derive(Resource)]
-struct AutoExplosionTimer(Timer);
-
-impl Default for AutoExplosionTimer {
-    fn default() -> Self {
-        Self(Timer::from_seconds(5.0, TimerMode::Repeating))
-    }
-}
-
+/// Her 10 saniyede bir rastgele pozisyonda patlama oluşturur
 fn demo_auto_explosion_spawner(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
