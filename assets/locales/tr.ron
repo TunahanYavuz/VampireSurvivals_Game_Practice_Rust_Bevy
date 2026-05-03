@@ -5,6 +5,17 @@
     "menu_settings": "Ayarlar",
     "menu_quit": "Çık",
 
+    // Lobi
+    "lobby_title": "Lobi",
+    "lobby_solo": "Tekli (Yerel)",
+    "lobby_host": "Oyunu Host'la",
+    "lobby_client": "Oyuna Katıl",
+    "lobby_mode_label": "Yükseltme Modu:",
+    "lobby_mode_shared": "Mod B: Paylaşımlı",
+    "lobby_mode_independent": "Mod A: Bağımsız",
+    "lobby_start_hosting": "Host Başlat",
+    "lobby_connect": "Bağlan",
+
     // Ayarlar
     "settings_title": "Ayarlar",
     "master_volume": "Ana Ses",

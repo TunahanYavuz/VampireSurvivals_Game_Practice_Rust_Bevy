@@ -101,7 +101,7 @@ fn handle_menu_buttons(
     for (interaction, button) in &interactions_q {
         if *interaction == Interaction::Pressed {
             match button {
-                MenuButton::Play => next_state.set(GameState::Loading),
+                MenuButton::Play => next_state.set(GameState::Lobby),
                 MenuButton::Settings => next_state.set(GameState::Settings),
                 MenuButton::Quit => {
                     exit.write(AppExit::Success);

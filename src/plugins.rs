@@ -19,3 +19,5 @@ pub mod reinforcements;
 pub mod locale;
 pub mod settings;
 pub mod boss;
+pub mod network;
+pub mod lobby;
