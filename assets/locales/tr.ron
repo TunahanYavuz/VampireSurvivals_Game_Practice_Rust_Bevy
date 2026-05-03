@@ -1,0 +1,44 @@
+{
+    // Ana Menü
+    "game_title": "Vampire Survivals Deneme",
+    "menu_play": "Oyna",
+    "menu_settings": "Ayarlar",
+    "menu_quit": "Çık",
+
+    // Ayarlar
+    "settings_title": "Ayarlar",
+    "master_volume": "Ana Ses",
+    "music_volume": "Müzik Sesi",
+    "sfx_volume": "Efekt Sesi",
+    "language": "Dil",
+    "toggle": "Değiştir",
+    "back": "Geri",
+    "save_and_back": "Kaydet ve Geri",
+
+    // Yükseltme Menüsü
+    "upgrade_laser": "Laser Silahı Güçlendir",
+    "upgrade_laser_desc": "Hasar +10, Hız +%5",
+    "upgrade_rocket": "Roket Silahı Güçlendir",
+    "upgrade_rocket_desc": "Hasar +15, Patlama +10",
+    "upgrade_flame": "Alev Silahı Güçlendir",
+    "upgrade_flame_desc": "Hasar +3, Alan +15%",
+    "upgrade_raygun": "Işın Silahı Güçlendir",
+    "upgrade_raygun_desc": "Hasar +3, Hedef +1",
+    "upgrade_sword": "Kılıç Silahı Güçlendir",
+    "upgrade_sword_desc": "Hasar +5, Adet +2",
+    "option_prefix": "Seçenek",
+
+    // HUD / Skor
+    "score_label": "Skor",
+    "stage_label": "Aşama",
+    "player_hp": "HP",
+    "xp_label": "XP",
+    "xp_to_next": "Sonraki XP",
+    "elapsed": "geçti",
+
+    // Oyun Bitti
+    "game_over": "Oyun Bitti! Yeniden başlatmak için R'ye basın",
+
+    // Boss
+    "boss_warning": "BOSS GELİYOR!",
+}

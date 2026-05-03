@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::audio::GameAudioPlugin;
+use crate::plugins::boss::BossPlugin;
 use crate::plugins::config::ConfigPlugin;
 use crate::plugins::enemy::EnemyPlugin;
 use crate::plugins::game::GamePlugin;
@@ -10,6 +11,7 @@ use crate::plugins::particle_effects::ParticlePlugin;
 use crate::plugins::player::PlayerPlugin;
 use crate::plugins::reinforcements::ReinforcementsPlugin;
 use crate::plugins::score::ScorePlugin;
+use crate::plugins::settings::SettingsPlugin;
 use crate::plugins::timers::TimerPlugin;
 use crate::plugins::weapon_effects::WeaponEffectPlugin;
 use crate::plugins::weapon_upgrade::UpgradePlugin;
@@ -26,6 +28,7 @@ fn main() {
                 ReinforcementsPlugin,
                 PlayerPlugin,
                 EnemyPlugin,
+                BossPlugin,
                 WeaponPlugin,
                 ParticlePlugin,
                 WeaponEffectPlugin,
@@ -35,6 +38,7 @@ fn main() {
                 GameAudioPlugin,
                 TimerPlugin,
                 MainMenuPlugin,
+                SettingsPlugin,
         ))
         .init_state::<GameState>()
 

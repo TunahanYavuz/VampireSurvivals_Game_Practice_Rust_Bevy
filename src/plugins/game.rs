@@ -1,6 +1,7 @@
 use crate::plugins::common::GameEntity;
 use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
+use crate::plugins::locale::Locale;
 use crate::plugins::player::Player;
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
@@ -9,6 +10,7 @@ use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::prelude::*;
+use crate::plugins::boss::BossSpawnTracker;
 use crate::plugins::config::Config;
 
 pub struct GamePlugin;
@@ -88,51 +90,85 @@ fn prepare_atlases_and_spawn(
     atlases.ready = true;
 
     let player_config = &config.0.player;
-    let player = Player{
+
+    // Spawn Player 1 (WASD)
+    let p1 = Player {
         health: player_config.health,
         max_health: player_config.max_health,
         movement: player_config.speed,
         starting_weapon: player_config.starting_weapon.clone(),
+        player_index: 0,
         ..default()
     };
-    // Player spawn - GameEntity marker ile işaretle
-    let player_entity = commands
+    let p1_entity = commands
         .spawn((
             GameEntity,
             Sprite::from_atlas_image(
                 textures.textures.get(&TextureType::Body).unwrap().clone(),
                 TextureAtlas {
-                    layout: body_atlas,
+                    layout: body_atlas.clone(),
                     index: 0,
                 },
             ),
-            Transform::from_xyz(0.0, 0.0, 0.0),
-            player,
+            Transform::from_xyz(-50.0, 0.0, 0.0),
+            p1,
             Aabb {
                 center: Vec3::ZERO.into(),
                 half_extents: Vec3::new(20., 20., 0.0).into(),
             },
             NoAutoAabb,
             NoFrustumCulling,
-            // AABB {
-            //     max_x: 20.,
-            //     max_y: 20.,
-            //     min_x: -20.,
-            //     min_y: -20.,
-            //     width: 40.,
-            //     height: 40.,
-            // },
         ))
         .id();
     spawn_weapons_for_player(
         &mut commands,
-        player_entity,
-        Vec3::ZERO,
+        p1_entity,
+        Vec3::new(-50.0, 0.0, 0.0),
         &mut meshes,
         &mut materials,
         player_config.starting_weapon.as_str(),
-        &asset_server
+        &asset_server,
     );
+
+    // Spawn Player 2 (Arrow keys) at a slight offset
+    let p2 = Player {
+        health: player_config.health,
+        max_health: player_config.max_health,
+        movement: player_config.speed,
+        starting_weapon: player_config.starting_weapon.clone(),
+        player_index: 1,
+        ..default()
+    };
+    let p2_entity = commands
+        .spawn((
+            GameEntity,
+            Sprite::from_atlas_image(
+                textures.textures.get(&TextureType::Body).unwrap().clone(),
+                TextureAtlas {
+                    layout: body_atlas,
+                    index: 9, // slightly different sprite row to visually distinguish
+                },
+            ),
+            Transform::from_xyz(50.0, 0.0, 0.0),
+            p2,
+            Aabb {
+                center: Vec3::new(50., 0., 0.).into(),
+                half_extents: Vec3::new(20., 20., 0.0).into(),
+            },
+            NoAutoAabb,
+            NoFrustumCulling,
+        ))
+        .id();
+    spawn_weapons_for_player(
+        &mut commands,
+        p2_entity,
+        Vec3::new(50.0, 0.0, 0.0),
+        &mut meshes,
+        &mut materials,
+        player_config.starting_weapon.as_str(),
+        &asset_server,
+    );
+
     next_state.set(GameState::Playing);
 }
 
@@ -149,10 +185,10 @@ fn cleanup_game(
 }
 
 /// GameOver ekranını göster
-fn show_game_over_screen(mut commands: Commands) {
+fn show_game_over_screen(mut commands: Commands, locale: Res<Locale>) {
     commands.spawn((
         GameEntity,
-        Text::new("Game Over! Press R to Restart"),
+        Text::new(locale.t("game_over")),
         TextFont {
             font_size: 50.0,
             ..default()
@@ -161,7 +197,7 @@ fn show_game_over_screen(mut commands: Commands) {
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(300.0),
-            left: Val::Px(400.0),
+            left: Val::Px(300.0),
             ..default()
         },
     ));
@@ -177,15 +213,16 @@ fn restart_on_key(
     mut reduce_timer: ResMut<PlayerHealthReduceTimer>,
     mut game_timer: ResMut<GameTimer>,
     mut stage_manager: ResMut<GameStageManager>,
+    mut boss_tracker: ResMut<BossSpawnTracker>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) {
-        // Resource'ları resetle
         *atlases = Atlases::default();
         *spawn_timer = EnemySpawnTimer::default();
         *move_timer = MoveTimer::default();
         *reduce_timer = PlayerHealthReduceTimer::default();
         *game_timer = GameTimer::default();
         *stage_manager = GameStageManager::default();
+        *boss_tracker = BossSpawnTracker::default();
         next_state.set(GameState::Loading);
     }
 }

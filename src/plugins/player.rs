@@ -34,11 +34,13 @@ pub struct Player {
     pub max_health: u32,
     pub score: u32,
     pub movement: f32,
-    #[warn(unused)]
+    #[allow(unused)]
     pub starting_weapon: String,
     pub xp: f32,
     pub level: i32,
     pub xp_to_next_level: f32,
+    /// 0 = Player 1 (WASD), 1 = Player 2 (Arrow keys)
+    pub player_index: u8,
 }
 
 impl Default for Player {
@@ -52,6 +54,7 @@ impl Default for Player {
             xp: 0.,
             level: 1,
             xp_to_next_level: 100.,
+            player_index: 0,
         }
     }
 }
@@ -113,7 +116,7 @@ pub fn collect_xp_with_magnet(
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
-        for entity in xp_query {
+        for entity in xp_query.iter() {
             commands.entity(entity).insert(XPMagnetite);
         }
     }
@@ -121,14 +124,20 @@ pub fn collect_xp_with_magnet(
 
 pub fn magnetite_xp_to_player(
     mut xp_query: Query<(&mut Transform, &mut Aabb), (With<XPMagnetite>, Without<Player>)>,
-    player_query: Query<&Transform, (With<Player>, Without<XPMagnetite>)>,
+    player_query: Query<(&Transform, &Player), (With<Player>, Without<XPMagnetite>)>,
 ) {
-    let Ok(player_position) = player_query.single() else {
+    // Prefer P1 (player_index == 0) as the magnet target; fall back to any alive player.
+    let target = player_query
+        .iter()
+        .min_by_key(|(_, p)| p.player_index)
+        .map(|(t, _)| t.translation);
+
+    let Some(target_pos) = target else {
         return;
     };
 
     for (mut xp_transform, mut xp_aabb) in xp_query.iter_mut() {
-        let direction = (player_position.translation - xp_transform.translation).normalize();
+        let direction = (target_pos - xp_transform.translation).normalize();
         xp_transform.translation += direction * 5.;
         xp_aabb.center = xp_transform.translation.into();
     }
@@ -145,66 +154,81 @@ pub fn move_player(
         return;
     }
 
-    let Ok((mut transform, player, mut aabb, mut sprite)) = player_query.single_mut() else {
-        return;
-    };
-
-    if sprite.texture_atlas.is_none() {
-        if let Some(layout_handle) = &atlases.body {
-            sprite.texture_atlas = Some(TextureAtlas {
-                layout: layout_handle.clone(),
-                index: 0,
-            });
-        }
-    }
-
-    let mut pos = transform.translation;
-
-    let mut dir = 5;
-
-    if keyboard_input.pressed(KeyCode::KeyA) {
-        pos.x -= player.movement * time.delta_secs();
-        dir = -1;
-    }
-    if keyboard_input.pressed(KeyCode::KeyD) {
-        pos.x += player.movement * time.delta_secs();
-        dir = 1;
-    }
-    if keyboard_input.pressed(KeyCode::KeyW) {
-        pos.y += player.movement * time.delta_secs();
-        dir = 2;
-    }
-    if keyboard_input.pressed(KeyCode::KeyS) {
-        pos.y -= player.movement * time.delta_secs();
-        dir = 0
-    }
-    if let Some(ref mut atlas) = sprite.texture_atlas {
-        if enemy_move_timer.timer.just_finished() {
-            if dir == -1 {
-                atlas.index = 9 + (atlas.index + 1) % 9;
-            } else if dir == 1 {
-                atlas.index = 27 + (atlas.index + 1) % 9;
-            } else if dir == 2 {
-                atlas.index = 0 + (atlas.index + 1) % 9;
-            } else if dir == 0 {
-                atlas.index = 18 + (atlas.index + 1) % 9;
+    for (mut transform, player, mut aabb, mut sprite) in player_query.iter_mut() {
+        if sprite.texture_atlas.is_none() {
+            if let Some(layout_handle) = &atlases.body {
+                sprite.texture_atlas = Some(TextureAtlas {
+                    layout: layout_handle.clone(),
+                    index: 0,
+                });
             }
         }
+
+        // Choose input keys per player index.
+        let (key_left, key_right, key_up, key_down) = if player.player_index == 0 {
+            (KeyCode::KeyA, KeyCode::KeyD, KeyCode::KeyW, KeyCode::KeyS)
+        } else {
+            (
+                KeyCode::ArrowLeft,
+                KeyCode::ArrowRight,
+                KeyCode::ArrowUp,
+                KeyCode::ArrowDown,
+            )
+        };
+
+        let mut pos = transform.translation;
+        let mut dir: i32 = 5; // 5 = idle
+
+        if keyboard_input.pressed(key_left) {
+            pos.x -= player.movement * time.delta_secs();
+            dir = -1;
+        }
+        if keyboard_input.pressed(key_right) {
+            pos.x += player.movement * time.delta_secs();
+            dir = 1;
+        }
+        if keyboard_input.pressed(key_up) {
+            pos.y += player.movement * time.delta_secs();
+            dir = 2;
+        }
+        if keyboard_input.pressed(key_down) {
+            pos.y -= player.movement * time.delta_secs();
+            dir = 0;
+        }
+
+        if let Some(ref mut atlas) = sprite.texture_atlas {
+            if enemy_move_timer.timer.just_finished() {
+                if dir == -1 {
+                    atlas.index = 9 + (atlas.index + 1) % 9;
+                } else if dir == 1 {
+                    atlas.index = 27 + (atlas.index + 1) % 9;
+                } else if dir == 2 {
+                    atlas.index = (atlas.index + 1) % 9;
+                } else if dir == 0 {
+                    atlas.index = 18 + (atlas.index + 1) % 9;
+                }
+            }
+        }
+        transform.translation = pos;
+        aabb.center = transform.translation.to_vec3a();
     }
-    transform.translation = pos;
-    aabb.center = transform.translation.to_vec3a();
 }
 
 fn sync_camera(
     player_query: Query<&Transform, With<Player>>,
     mut camera_query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
 ) {
-    let Ok(player_transform) = player_query.single() else {
+    let positions: Vec<Vec3> = player_query.iter().map(|t| t.translation).collect();
+    if positions.is_empty() {
+        return;
+    }
+    let midpoint = positions.iter().copied().sum::<Vec3>() / positions.len() as f32;
+
+    let Ok(mut camera_transform) = camera_query.single_mut() else {
         return;
     };
-    let mut camera_transform = camera_query.single_mut().unwrap();
-    camera_transform.translation.x = player_transform.translation.x;
-    camera_transform.translation.y = player_transform.translation.y;
+    camera_transform.translation.x = midpoint.x;
+    camera_transform.translation.y = midpoint.y;
 }
 
 pub fn reduce_player_health(
@@ -220,13 +244,24 @@ pub fn reduce_player_health(
         return;
     }
 
-    let Ok((mut player, aabb, entity)) = player_query.single_mut() else {
-        return;
-    };
+    let mut all_dead = true;
 
-    player.take_damage(entity, &mut commands, enemy_query, &aabb);
+    for (mut player, aabb, entity) in player_query.iter_mut() {
+        // Apply enemy contact damage.
+        for (enemy_aabb, enemy) in enemy_query.iter() {
+            if player.health > 0 && aabb_intersects(enemy_aabb, &aabb) {
+                player.health = player.health.saturating_sub(enemy.damage as u32);
+            }
+        }
 
-    if player.health == 0 {
+        if player.health == 0 {
+            commands.entity(entity).despawn();
+        } else {
+            all_dead = false;
+        }
+    }
+
+    if all_dead {
         next_state.set(GameState::GameOver);
     }
 }

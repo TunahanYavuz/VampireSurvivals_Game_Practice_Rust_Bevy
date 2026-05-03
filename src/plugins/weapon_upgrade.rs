@@ -1,5 +1,6 @@
 use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
+use crate::plugins::locale::Locale;
 use crate::plugins::player::Player;
 use crate::plugins::weapon_stats::{
     SwordWeapon, WeaponStats, spawn_flame_weapon, spawn_lazer_weapon, spawn_raygun_weapon,
@@ -80,37 +81,37 @@ pub struct WeaponLevel {
     pub weapon_type: WeaponType,
 }
 impl UpgradeChoices {
-    pub fn generate_random_options(&mut self, asset_server: &AssetServer) -> Vec<UpgradeOption> {
+    pub fn generate_random_options(&mut self, locale: &Locale) -> Vec<UpgradeOption> {
         let all_options = vec![
             UpgradeOption {
                 weapon_type: WeaponType::Laser,
-                name: "Laser Silahı Güçlendir".to_string(),
-                description: "Hasar +10, Hız +%5".to_string(),
+                name: locale.t("upgrade_laser").to_string(),
+                description: locale.t("upgrade_laser_desc").to_string(),
                 icon: None,
             },
             UpgradeOption {
                 weapon_type: WeaponType::Rocket,
-                name: "Roket Silahı Güçlendir".to_string(),
-                description: "Hasar +15, Patlama +10".to_string(),
+                name: locale.t("upgrade_rocket").to_string(),
+                description: locale.t("upgrade_rocket_desc").to_string(),
                 icon: None,
             },
             UpgradeOption {
                 weapon_type: WeaponType::Addicted,
-                name: "Alev Silahı Güçlendir".to_string(),
-                description: "Hasar +3, Alan +15%".to_string(),
+                name: locale.t("upgrade_flame").to_string(),
+                description: locale.t("upgrade_flame_desc").to_string(),
                 icon: None,
             },
             UpgradeOption {
                 weapon_type: WeaponType::RayGun,
-                name: "Işın Silahı Güçlendir".to_string(),
-                description: "Hasar +3, Hedef +1".to_string(),
+                name: locale.t("upgrade_raygun").to_string(),
+                description: locale.t("upgrade_raygun_desc").to_string(),
                 icon: None,
             },
             UpgradeOption {
                 weapon_type: WeaponType::Sword,
-                name: "Kılıç Silahı Güçlendir".to_string(),
-                description: "Hasar +5, Adet +2".to_string(),
-                icon: Some(asset_server.load("sprites/sword.png")),
+                name: locale.t("upgrade_sword").to_string(),
+                description: locale.t("upgrade_sword_desc").to_string(),
+                icon: None,
             },
         ];
         let mut rng = rng();
@@ -132,10 +133,11 @@ pub fn show_upgrade_choices_on_level_up(
     mut commands: Commands,
     table: Query<Entity, With<WeaponTable>>,
     asset_server: Res<AssetServer>,
+    locale: Res<Locale>,
 ) {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
     for _ in level_up_events.read() {
-        let options = upgrade_choices.generate_random_options(&asset_server);
+        let options = upgrade_choices.generate_random_options(&locale);
 
         let Ok(table_entity) = table.single() else {
             commands.spawn((WeaponTable, Node::default()));
@@ -148,8 +150,11 @@ pub fn show_upgrade_choices_on_level_up(
                     Button::default(),
                     UpgradeButton(option.weapon_type),
                     Text::new(format!(
-                        "Seçenek {} {} - {}",
-                        i, option.name, option.description
+                        "{} {} {} - {}",
+                        locale.t("option_prefix"),
+                        i + 1,
+                        option.name,
+                        option.description
                     )),
                     TextFont {
                         font: font.clone(),
@@ -244,23 +249,22 @@ pub fn apply_weapon_upgrade(
             .any(|(_, level, ..)| level.weapon_type == event.weapon_type);
 
         if !weapon_exists {
-            let Ok(player_entity) = player_q.single() else {
-                continue;
-            };
-
-            match event.weapon_type {
-                WeaponType::Laser => spawn_lazer_weapon(&mut commands, player_entity.0),
-                WeaponType::Rocket => spawn_rocket_weapon(&mut commands, player_entity.0),
-                WeaponType::RayGun => spawn_raygun_weapon(&mut commands, player_entity.0),
-                WeaponType::Addicted => spawn_flame_weapon(
-                    &mut commands,
-                    player_entity.0,
-                    player_entity.1.translation,
-                    &mut meshes,
-                    &mut materials,
-                    &asset_server
-                ),
-                WeaponType::Sword => spawn_throwing_weapon(&mut commands, player_entity.0),
+            // Spawn the new weapon for every player.
+            for (player_entity, player_transform) in &player_q {
+                match event.weapon_type {
+                    WeaponType::Laser => spawn_lazer_weapon(&mut commands, player_entity),
+                    WeaponType::Rocket => spawn_rocket_weapon(&mut commands, player_entity),
+                    WeaponType::RayGun => spawn_raygun_weapon(&mut commands, player_entity),
+                    WeaponType::Addicted => spawn_flame_weapon(
+                        &mut commands,
+                        player_entity,
+                        player_transform.translation,
+                        &mut meshes,
+                        &mut materials,
+                        &asset_server,
+                    ),
+                    WeaponType::Sword => spawn_throwing_weapon(&mut commands, player_entity),
+                }
             }
             next_state.set(GameState::Playing);
             continue;
@@ -290,18 +294,12 @@ pub fn apply_weapon_upgrade(
             match event.weapon_type {
                 WeaponType::Laser => {
                     if let Some(_laser_weapon) = laser {
-                        // Laser'a özel güncellemeler (örn: renk değişimi)
-                        println!("Laser yükseltildi! Yeni seviye: {}", new_level);
+                        // Laser-specific updates (e.g. colour change)
                     }
                 }
                 WeaponType::Rocket => {
                     if let Some(mut rocket_weapon) = rocket {
-                        // Roket patlama yarıçapını artır
                         rocket_weapon.explosion_radius = stats.calculate_range(new_level);
-                        println!(
-                            "Roket yükseltildi! Yeni patlama yarıçapı: {}",
-                            rocket_weapon.explosion_radius
-                        );
                     }
                 }
                 WeaponType::Addicted => {
@@ -310,10 +308,6 @@ pub fn apply_weapon_upgrade(
                         if let SpawnMode::Circular { ref mut radius } = emitter.spawn_mode {
                             *radius = addicted_weapon.radius;
                         }
-                        println!(
-                            "Alev silahı yükseltildi! Yeni yarıçap: {}",
-                            addicted_weapon.radius
-                        );
                     }
                 }
                 WeaponType::RayGun => {
@@ -321,7 +315,9 @@ pub fn apply_weapon_upgrade(
                         raygun.pierce_count += 1;
                     }
                 }
-                WeaponType::Sword => if let Some( _sword) = sword {},
+                WeaponType::Sword => {
+                    if let Some(_sword) = sword {}
+                }
             }
 
             next_state.set(GameState::Playing);

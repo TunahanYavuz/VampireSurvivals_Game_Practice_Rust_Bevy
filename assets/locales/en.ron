@@ -1,0 +1,44 @@
+{
+    // Main Menu
+    "game_title": "Vampire Survivors Clone",
+    "menu_play": "Play",
+    "menu_settings": "Settings",
+    "menu_quit": "Quit",
+
+    // Settings
+    "settings_title": "Settings",
+    "master_volume": "Master Volume",
+    "music_volume": "Music Volume",
+    "sfx_volume": "SFX Volume",
+    "language": "Language",
+    "toggle": "Toggle",
+    "back": "Back",
+    "save_and_back": "Save & Back",
+
+    // Upgrade Menu
+    "upgrade_laser": "Upgrade Laser",
+    "upgrade_laser_desc": "Damage +10, Speed +5%",
+    "upgrade_rocket": "Upgrade Rocket",
+    "upgrade_rocket_desc": "Damage +15, Explosion +10",
+    "upgrade_flame": "Upgrade Flame Thrower",
+    "upgrade_flame_desc": "Damage +3, Area +15%",
+    "upgrade_raygun": "Upgrade Ray Gun",
+    "upgrade_raygun_desc": "Damage +3, Targets +1",
+    "upgrade_sword": "Upgrade Sword",
+    "upgrade_sword_desc": "Damage +5, Count +2",
+    "option_prefix": "Option",
+
+    // HUD / Score
+    "score_label": "Score",
+    "stage_label": "Stage",
+    "player_hp": "HP",
+    "xp_label": "XP",
+    "xp_to_next": "XP to next",
+    "elapsed": "elapsed",
+
+    // Game Over
+    "game_over": "Game Over! Press R to Restart",
+
+    // Boss
+    "boss_warning": "BOSS INCOMING!",
+}

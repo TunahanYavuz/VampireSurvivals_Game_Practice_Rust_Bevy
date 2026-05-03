@@ -15,7 +15,6 @@ use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
 use std::f32::consts::PI;
-use strum::EnumCount;
 use crate::plugins::config::Config;
 use crate::plugins::reinforcements::spawn_reinforcement;
 
@@ -145,14 +144,22 @@ pub fn follow(
     mut enemy_move_timer: ResMut<MoveTimer>,
     mut enemy_sprit_query: Query<(&mut Sprite, &mut EnemySprit), With<EnemySprit>>,
 ) {
-    let Ok(player_transform) = player_query.single() else {
-        return;
-    };
-    let player_position = player_transform.translation;
-
     enemy_move_timer.timer.tick(time.delta());
     for (mut enemy_position, enemy, mut aabb, children) in enemy_query.iter_mut() {
-        let diff: Vec3 = player_position - enemy_position.translation;
+        // Target the nearest alive player.
+        let Some(target_pos) = player_query
+            .iter()
+            .map(|t| t.translation)
+            .min_by(|a, b| {
+                a.distance(enemy_position.translation)
+                    .partial_cmp(&b.distance(enemy_position.translation))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        else {
+            continue;
+        };
+
+        let diff: Vec3 = target_pos - enemy_position.translation;
         if diff.length_squared() < 1e-6 {
             continue;
         }
@@ -223,7 +230,7 @@ pub fn spawn_enemies(
         return;
     }
 
-    let Ok(player_transform) = player_query.single() else {
+    let Ok(player_transform) = player_query.iter().next().map(Ok::<_, ()>).unwrap_or(Err(())) else {
         return;
     };
 
@@ -259,11 +266,11 @@ pub fn spawn_enemies(
             let base_speed = base.speed;
             let base_damage = base.damage;
 
-            let level = stage_manager.current_stage_index;
-            let texture_type = if let Some(texture_type) = TextureType::from_repr(level + 1) && level <= TextureType::COUNT - 2 {
-                texture_type
-            } else {
-                TextureType::Robot
+            let texture_type = match enemy_type_index {
+                0 => TextureType::Zombie,
+                1 => TextureType::Knight,
+                2 => TextureType::Vampire,
+                _ => TextureType::Robot,
             };
 
             let spirit = Sprite::from_atlas_image(

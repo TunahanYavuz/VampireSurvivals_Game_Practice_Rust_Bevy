@@ -16,3 +16,6 @@ pub mod config;
 pub mod particle_effects;
 pub mod weapon_effects;
 pub mod reinforcements;
+pub mod locale;
+pub mod settings;
+pub mod boss;

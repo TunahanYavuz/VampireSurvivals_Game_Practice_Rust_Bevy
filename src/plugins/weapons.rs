@@ -470,8 +470,8 @@ pub fn fire_rocket_weapons(
 
 pub fn move_player_addicted_weapons(
     time: Res<Time>,
-    mut player_query: Query<
-        (&Transform, &mut Player),
+    player_query: Query<
+        &Transform,
         (
             With<Player>,
             Without<Enemy>,
@@ -492,19 +492,18 @@ pub fn move_player_addicted_weapons(
     >,
     mut enemies: Query<(&Transform, &mut Enemy), Without<PlayerAddictedWeapon>>,
 ) {
-    let Ok(player_transform) = player_query.single_mut() else {
-        return;
-    };
     for (mut addicted_transform, _weapon_stats, mut weapon, addicted_comp, _w_entity, mut _emitter) in
         player_addicted_weapon.iter_mut()
     {
-        // Pozisyonu takip et
-        addicted_transform.translation = player_transform.0.translation;
-        // Görsel ölçeği radius'a göre güncelle
+        // Follow the owning player's position.
+        let Ok(player_transform) = player_query.get(weapon.owner) else {
+            continue;
+        };
+
+        addicted_transform.translation = player_transform.translation;
         let visual_scale = addicted_comp.radius;
         addicted_transform.scale = Vec3::splat(visual_scale);
 
-        // Ateşleme / hasar mantığı
         weapon.fire_timer.tick(time.delta());
         if !weapon.fire_timer.just_finished() {
             continue;
@@ -514,8 +513,7 @@ pub fn move_player_addicted_weapons(
         for (enemy_transform, mut enemy) in enemies.iter_mut() {
             let dist = enemy_transform
                 .translation
-                .distance(player_transform.0.translation);
-
+                .distance(player_transform.translation);
             if dist <= weapon_radius {
                 enemy.health = enemy.health.saturating_sub(weapon.damage as i32);
             }
@@ -636,7 +634,7 @@ pub struct SwordProjectile {
 pub fn throw_swords(
     mut commands: Commands,
     time: Res<Time>,
-    player: Single<(&Player, &Transform), (With<Player>, Without<Throwable>)>,
+    players: Query<(&Player, &Transform), (With<Player>, Without<Throwable>)>,
     mut sword: Query<(&mut Throwable, &mut Weapon), (With<Throwable>, Without<Player>)>,
     window: Single<&Window>,
     camera: Query<(&Camera, &GlobalTransform)>,
@@ -646,53 +644,61 @@ pub fn throw_swords(
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
     };
-    let mut direction = Vec3::X;
-    let mut is_cursor_at_window = false;
 
-    if let Some(cursor_position) = window.cursor_position() {
-        if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-            direction = (world_pos - player.1.translation.xy())
-                .normalize()
-                .extend(0.0);
-            is_cursor_at_window = true;
-        }
-    }
-    for (mut sword, mut weapon) in sword.iter_mut() {
+    // Resolve cursor world position once per frame.
+    let cursor_world_pos = window
+        .cursor_position()
+        .and_then(|pos| camera.viewport_to_world_2d(camera_transform, pos).ok());
+
+    for (mut sword_comp, mut weapon) in sword.iter_mut() {
         weapon.fire_timer.tick(time.delta());
         if !weapon.fire_timer.just_finished() {
             continue;
         }
-        if !is_cursor_at_window {
-            direction = sword.last_direction;
-        }
-        sword.last_direction = direction;
-        let projectile_entity = commands.spawn((
-            GameEntity,
-            SwordProjectile {
-                angle: 0.0,
-                direction: direction,
-                speed: weapon.speed,
-                damage: weapon.damage,
-                hit_enemies: Vec::new(),
-                lifetime: Timer::from_seconds(2.0, TimerMode::Once),
-            },
-            Aabb{
-                center: player.1.translation.to_vec3a(),
-                half_extents: Vec3A::splat(60.0),
-            },
-            NoFrustumCulling,
-            Sprite {
-                image: textures.textures.get(&TextureType::Sword).unwrap().clone(),
-                ..default()
-            },
-            Transform::from_translation(player.1.translation),
-        )).id();
+
+        // Look up the player that owns this sword weapon.
+        let Ok((_, player_transform)) = players.get(weapon.owner) else {
+            continue;
+        };
+
+        let direction = if let Some(world_pos) = cursor_world_pos {
+            (world_pos - player_transform.translation.xy())
+                .normalize()
+                .extend(0.0)
+        } else {
+            sword_comp.last_direction
+        };
+        sword_comp.last_direction = direction;
+
+        let projectile_entity = commands
+            .spawn((
+                GameEntity,
+                SwordProjectile {
+                    angle: 0.0,
+                    direction,
+                    speed: weapon.speed,
+                    damage: weapon.damage,
+                    hit_enemies: Vec::new(),
+                    lifetime: Timer::from_seconds(2.0, TimerMode::Once),
+                },
+                Aabb {
+                    center: player_transform.translation.to_vec3a(),
+                    half_extents: Vec3A::splat(60.0),
+                },
+                NoFrustumCulling,
+                Sprite {
+                    image: textures.textures.get(&TextureType::Sword).unwrap().clone(),
+                    ..default()
+                },
+                Transform::from_translation(player_transform.translation),
+            ))
+            .id();
         attach_trail_effect(
             &mut commands,
             projectile_entity,
             WeaponType::Sword,
             &asset_server,
-        )
+        );
     }
 }
 

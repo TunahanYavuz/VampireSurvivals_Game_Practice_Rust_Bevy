@@ -1,4 +1,5 @@
 use crate::plugins::game_state::GameState;
+use crate::plugins::locale::Locale;
 use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
 
@@ -25,7 +26,7 @@ enum MenuButton {
     Quit,
 }
 
-fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>, locale: Res<Locale>) {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands
@@ -43,7 +44,7 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Vampire Survivals Deneme"),
+                Text::new(locale.t("game_title")),
                 TextFont {
                     font: font.clone(),
                     font_size: 60.0,
@@ -54,9 +55,9 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
             ));
-            spawn_button(parent, "Play", MenuButton::Play, font.clone());
-            spawn_button(parent, "Settings", MenuButton::Settings, font.clone());
-            spawn_button(parent, "Quit", MenuButton::Quit, font.clone());
+            spawn_button(parent, locale.t("menu_play"), MenuButton::Play, font.clone());
+            spawn_button(parent, locale.t("menu_settings"), MenuButton::Settings, font.clone());
+            spawn_button(parent, locale.t("menu_quit"), MenuButton::Quit, font.clone());
         });
 }
 
@@ -101,7 +102,7 @@ fn handle_menu_buttons(
         if *interaction == Interaction::Pressed {
             match button {
                 MenuButton::Play => next_state.set(GameState::Loading),
-                MenuButton::Settings => println!("Settings clicked"),
+                MenuButton::Settings => next_state.set(GameState::Settings),
                 MenuButton::Quit => {
                     exit.write(AppExit::Success);
                 }
