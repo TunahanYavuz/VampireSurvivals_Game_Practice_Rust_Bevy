@@ -5,6 +5,17 @@
     "menu_settings": "Settings",
     "menu_quit": "Quit",
 
+    // Lobby
+    "lobby_title": "Lobby",
+    "lobby_solo": "Solo (Local)",
+    "lobby_host": "Host Game",
+    "lobby_client": "Join Game",
+    "lobby_mode_label": "Upgrade Mode:",
+    "lobby_mode_shared": "Mode B: Shared",
+    "lobby_mode_independent": "Mode A: Independent",
+    "lobby_start_hosting": "Start Hosting",
+    "lobby_connect": "Connect",
+
     // Settings
     "settings_title": "Settings",
     "master_volume": "Master Volume",

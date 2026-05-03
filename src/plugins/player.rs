@@ -3,6 +3,10 @@ use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Enemy, XP};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
+use crate::plugins::network::{
+    C2S, NetworkRole, NetOutbox, PendingStatSnapshot, RemoteInput, StatSnapshotMsg, PlayerStat,
+    encode,
+};
 use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
@@ -22,6 +26,9 @@ impl Plugin for PlayerPlugin {
                 reduce_player_health,
                 collect_xp_with_magnet,
                 magnetite_xp_to_player,
+                // Network systems
+                send_client_input,
+                apply_stat_snapshot,
             )
                 .run_if(in_state(GameState::Playing)),
         );
@@ -39,7 +46,7 @@ pub struct Player {
     pub xp: f32,
     pub level: i32,
     pub xp_to_next_level: f32,
-    /// 0 = Player 1 (WASD), 1 = Player 2 (Arrow keys)
+    /// 0 = Player 1 (WASD / Host), 1 = Player 2 (Arrow keys / Client)
     pub player_index: u8,
 }
 
@@ -99,7 +106,10 @@ impl Player {
                 PlaybackSettings::DESPAWN,
             ));
 
-            message_writer.write(LevelUpEvent { level: self.level });
+            message_writer.write(LevelUpEvent {
+                level: self.level,
+                player_index: self.player_index,
+            });
             next_state.set(GameState::UpgradeSelection);
         }
     }
@@ -149,6 +159,8 @@ pub fn move_player(
     time: Res<Time>,
     atlases: Res<Atlases>,
     enemy_move_timer: Res<MoveTimer>,
+    role: Res<NetworkRole>,
+    remote_input: Res<RemoteInput>,
 ) {
     if !atlases.ready {
         return;
@@ -164,34 +176,70 @@ pub fn move_player(
             }
         }
 
-        // Choose input keys per player index.
-        let (key_left, key_right, key_up, key_down) = if player.player_index == 0 {
-            (KeyCode::KeyA, KeyCode::KeyD, KeyCode::KeyW, KeyCode::KeyS)
-        } else {
-            (
-                KeyCode::ArrowLeft,
-                KeyCode::ArrowRight,
-                KeyCode::ArrowUp,
-                KeyCode::ArrowDown,
-            )
+        // Determine which input source to use for this player:
+        // • Solo: keyboard for both players (original behaviour)
+        // • Host: keyboard for P1; RemoteInput (from client) for P2
+        // • Client: keyboard for P2 only; P1 position arrives via stat snapshot
+        let (left, right, up, down) = match *role {
+            NetworkRole::Solo => {
+                let (kl, kr, ku, kd) = if player.player_index == 0 {
+                    (KeyCode::KeyA, KeyCode::KeyD, KeyCode::KeyW, KeyCode::KeyS)
+                } else {
+                    (KeyCode::ArrowLeft, KeyCode::ArrowRight, KeyCode::ArrowUp, KeyCode::ArrowDown)
+                };
+                (
+                    keyboard_input.pressed(kl),
+                    keyboard_input.pressed(kr),
+                    keyboard_input.pressed(ku),
+                    keyboard_input.pressed(kd),
+                )
+            }
+            NetworkRole::Host => {
+                if player.player_index == 0 {
+                    (
+                        keyboard_input.pressed(KeyCode::KeyA),
+                        keyboard_input.pressed(KeyCode::KeyD),
+                        keyboard_input.pressed(KeyCode::KeyW),
+                        keyboard_input.pressed(KeyCode::KeyS),
+                    )
+                } else {
+                    // P2's input comes from the remote client.
+                    let ri = &remote_input.0;
+                    (ri.left, ri.right, ri.up, ri.down)
+                }
+            }
+            NetworkRole::Client => {
+                if player.player_index == 1 {
+                    // Local player on the client.
+                    (
+                        keyboard_input.pressed(KeyCode::ArrowLeft),
+                        keyboard_input.pressed(KeyCode::ArrowRight),
+                        keyboard_input.pressed(KeyCode::ArrowUp),
+                        keyboard_input.pressed(KeyCode::ArrowDown),
+                    )
+                } else {
+                    // P1 is controlled by the host; skip local movement.
+                    continue;
+                }
+            }
         };
 
         let mut pos = transform.translation;
         let mut dir: i32 = 5; // 5 = idle
 
-        if keyboard_input.pressed(key_left) {
+        if left {
             pos.x -= player.movement * time.delta_secs();
             dir = -1;
         }
-        if keyboard_input.pressed(key_right) {
+        if right {
             pos.x += player.movement * time.delta_secs();
             dir = 1;
         }
-        if keyboard_input.pressed(key_up) {
+        if up {
             pos.y += player.movement * time.delta_secs();
             dir = 2;
         }
-        if keyboard_input.pressed(key_down) {
+        if down {
             pos.y -= player.movement * time.delta_secs();
             dir = 0;
         }
@@ -238,7 +286,13 @@ pub fn reduce_player_health(
     mut player_health_reduce_timer: ResMut<PlayerHealthReduceTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<GameState>>,
+    role: Res<NetworkRole>,
 ) {
+    // On the client, health is authoritative from the host snapshot; skip local damage.
+    if *role == NetworkRole::Client {
+        return;
+    }
+
     player_health_reduce_timer.timer.tick(time.delta());
     if !player_health_reduce_timer.timer.just_finished() {
         return;
@@ -265,3 +319,92 @@ pub fn reduce_player_health(
         next_state.set(GameState::GameOver);
     }
 }
+
+// ──────────────────────── Network systems ────────────────────────────────
+
+/// Client: read P2's local keyboard state and send it to the host each frame.
+fn send_client_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    role: Res<NetworkRole>,
+    outbox: Option<Res<NetOutbox>>,
+) {
+    if *role != NetworkRole::Client {
+        return;
+    }
+    let Some(outbox) = outbox else { return };
+
+    let input = crate::plugins::network::InputState {
+        left: keyboard.pressed(KeyCode::ArrowLeft),
+        right: keyboard.pressed(KeyCode::ArrowRight),
+        up: keyboard.pressed(KeyCode::ArrowUp),
+        down: keyboard.pressed(KeyCode::ArrowDown),
+        collect_magnet: keyboard.just_pressed(KeyCode::KeyC),
+    };
+    if let Ok(frame) = encode(&C2S::PlayerInput(input)) {
+        let _ = outbox.0.send(frame);
+    }
+}
+
+/// Client: apply the latest stat snapshot received from the host.
+///
+/// The host is authoritative for health, XP, level, and score.  We override
+/// local values so the client HUD always shows accurate figures.
+fn apply_stat_snapshot(
+    role: Res<NetworkRole>,
+    mut pending: ResMut<PendingStatSnapshot>,
+    mut players: Query<&mut Player>,
+) {
+    if *role != NetworkRole::Client {
+        return;
+    }
+    let Some(snap) = pending.0.take() else {
+        return;
+    };
+    for mut player in players.iter_mut() {
+        let stat: &PlayerStat = if player.player_index == 0 {
+            &snap.p1
+        } else {
+            &snap.p2
+        };
+        player.health = stat.health;
+        player.xp = stat.xp;
+        player.level = stat.level;
+        player.xp_to_next_level = stat.xp_to_next_level;
+        player.score = stat.score;
+    }
+}
+
+/// Host: build a `StatSnapshotMsg` from the current player components and queue it.
+///
+/// Called every frame when running as host so the client stays in sync.
+pub fn flush_stat_snapshot(
+    role: Res<NetworkRole>,
+    outbox: Option<Res<NetOutbox>>,
+    players: Query<&Player>,
+) {
+    if *role != NetworkRole::Host {
+        return;
+    }
+    let Some(outbox) = outbox else { return };
+
+    let mut msg = StatSnapshotMsg::default();
+    for player in players.iter() {
+        let stat = PlayerStat {
+            health: player.health,
+            xp: player.xp,
+            level: player.level,
+            xp_to_next_level: player.xp_to_next_level,
+            score: player.score,
+        };
+        if player.player_index == 0 {
+            msg.p1 = stat;
+        } else {
+            msg.p2 = stat;
+        }
+    }
+    use crate::plugins::network::S2C;
+    if let Ok(frame) = encode(&S2C::StatSnapshot(msg)) {
+        let _ = outbox.0.send(frame);
+    }
+}
+

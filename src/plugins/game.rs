@@ -2,7 +2,8 @@ use crate::plugins::common::GameEntity;
 use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
-use crate::plugins::player::Player;
+use crate::plugins::network::NetworkRole;
+use crate::plugins::player::{Player, flush_stat_snapshot};
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer, PlayerHealthReduceTimer};
@@ -34,6 +35,11 @@ impl Plugin for GamePlugin {
             .add_systems(
                 Update,
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
+            )
+            // Host broadcasts player stats every playing frame.
+            .add_systems(
+                Update,
+                flush_stat_snapshot.run_if(in_state(GameState::Playing)),
             );
     }
 }
@@ -60,7 +66,8 @@ fn prepare_atlases_and_spawn(
     mut next_state: ResMut<NextState<GameState>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    config: Res<Config>
+    config: Res<Config>,
+    role: Res<NetworkRole>,
 ) {
     if atlases.ready {
         return;
@@ -91,7 +98,8 @@ fn prepare_atlases_and_spawn(
 
     let player_config = &config.0.player;
 
-    // Spawn Player 1 (WASD)
+    // Spawn Player 1 (WASD / Host) — always spawned on all machines so both
+    // screens show both characters.
     let p1 = Player {
         health: player_config.health,
         max_health: player_config.max_health,
@@ -120,17 +128,21 @@ fn prepare_atlases_and_spawn(
             NoFrustumCulling,
         ))
         .id();
-    spawn_weapons_for_player(
-        &mut commands,
-        p1_entity,
-        Vec3::new(-50.0, 0.0, 0.0),
-        &mut meshes,
-        &mut materials,
-        player_config.starting_weapon.as_str(),
-        &asset_server,
-    );
 
-    // Spawn Player 2 (Arrow keys) at a slight offset
+    // Host / Solo: spawn weapons for P1.  Client has no authoritative weapon state.
+    if *role != NetworkRole::Client {
+        spawn_weapons_for_player(
+            &mut commands,
+            p1_entity,
+            Vec3::new(-50.0, 0.0, 0.0),
+            &mut meshes,
+            &mut materials,
+            player_config.starting_weapon.as_str(),
+            &asset_server,
+        );
+    }
+
+    // Spawn Player 2 (Arrow keys / Client) — always spawned on all machines.
     let p2 = Player {
         health: player_config.health,
         max_health: player_config.max_health,
@@ -159,6 +171,8 @@ fn prepare_atlases_and_spawn(
             NoFrustumCulling,
         ))
         .id();
+
+    // Client: spawn P2's weapons; Host/Solo: also spawn P2 weapons.
     spawn_weapons_for_player(
         &mut commands,
         p2_entity,
@@ -226,3 +240,4 @@ fn restart_on_key(
         next_state.set(GameState::Loading);
     }
 }
+

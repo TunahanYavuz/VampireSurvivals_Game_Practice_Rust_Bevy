@@ -6,7 +6,9 @@ use crate::plugins::enemy::EnemyPlugin;
 use crate::plugins::game::GamePlugin;
 use crate::plugins::game_state::GameState;
 use crate::plugins::ground::GroundPlugin;
+use crate::plugins::lobby::LobbyPlugin;
 use crate::plugins::main_menu::MainMenuPlugin;
+use crate::plugins::network::NetworkPlugin;
 use crate::plugins::particle_effects::ParticlePlugin;
 use crate::plugins::player::PlayerPlugin;
 use crate::plugins::reinforcements::ReinforcementsPlugin;
@@ -24,6 +26,7 @@ fn main() {
         // Oyun Plugin'leri
         .add_plugins((
                 ConfigPlugin,
+                NetworkPlugin,
                 GamePlugin,
                 ReinforcementsPlugin,
                 PlayerPlugin,
@@ -38,6 +41,7 @@ fn main() {
                 GameAudioPlugin,
                 TimerPlugin,
                 MainMenuPlugin,
+                LobbyPlugin,
                 SettingsPlugin,
         ))
         .init_state::<GameState>()
