@@ -4,6 +4,7 @@ use bevy::prelude::States;
 pub enum GameState {
     #[default]
     MainMenu,
+    Settings,
     Loading,
     Playing,
     GameOver,

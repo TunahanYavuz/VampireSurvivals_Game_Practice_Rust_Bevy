@@ -118,44 +118,72 @@ pub fn apply_reinforcements(
     mut next_state: ResMut<NextState<GameState>>,
     audio: Res<GameAudio>,
 ) {
-    for mut player in player_query.iter_mut() {
-        for (reinforcement, xp, entity) in reinforcements_q.iter_mut() {
-            let mut should_despawn = false;
-            if let Some(reinforcement) = reinforcement {
-                if reinforcement.is_collected {
-                    match reinforcement.reinforcement_type {
-                        ReinforcementType::Magnet => {
-                            for xp_entity in xp_query.iter() {
-                                commands.entity(xp_entity).try_insert(XPMagnetite);
-                            }
-                        },
-                        ReinforcementType::HealthPack => {
-                            player.health = (player.health + 20).min(player.max_health);
-                        },
-                        ReinforcementType::KillEnemies => {
-                            for mut enemy in enemies.iter_mut() {
-                                enemy.should_despawn = true;
-                                enemy.drops_loot = false;
-                            }
-                        },
+    // Find primary player (index 0) first; fall back to any alive player.
+    let primary_entity = player_query
+        .iter()
+        .find(|p| p.player_index == 0)
+        .is_some();
+
+    for (reinforcement, xp, entity) in reinforcements_q.iter_mut() {
+        let mut should_despawn = false;
+
+        if let Some(reinforcement) = reinforcement {
+            if reinforcement.is_collected {
+                // Apply effect to all players.
+                match reinforcement.reinforcement_type {
+                    ReinforcementType::Magnet => {
+                        for xp_entity in xp_query.iter() {
+                            commands.entity(xp_entity).try_insert(XPMagnetite);
+                        }
                     }
-                    should_despawn = true;
+                    ReinforcementType::HealthPack => {
+                        for mut player in player_query.iter_mut() {
+                            player.health = (player.health + 20).min(player.max_health);
+                        }
+                    }
+                    ReinforcementType::KillEnemies => {
+                        for mut enemy in enemies.iter_mut() {
+                            enemy.should_despawn = true;
+                            enemy.drops_loot = false;
+                        }
+                    }
                 }
-            } else if let Some(xp) = xp {
-                if xp.is_collected {
-                    player.gain_xp(
-                        xp.amount as f32,
-                        &mut level_up_events,
-                        &mut next_state,
-                        &mut commands,
-                        &audio,
-                    );
-                    should_despawn = true;
+                should_despawn = true;
+            }
+        } else if let Some(xp) = xp {
+            if xp.is_collected {
+                // Credit XP only to the primary player (P1 owns the level-up system).
+                if primary_entity {
+                    for mut player in player_query.iter_mut() {
+                        if player.player_index == 0 {
+                            player.gain_xp(
+                                xp.amount as f32,
+                                &mut level_up_events,
+                                &mut next_state,
+                                &mut commands,
+                                &audio,
+                            );
+                            break;
+                        }
+                    }
+                } else {
+                    // No P1 alive — credit any remaining player.
+                    if let Some(mut player) = player_query.iter_mut().next() {
+                        player.gain_xp(
+                            xp.amount as f32,
+                            &mut level_up_events,
+                            &mut next_state,
+                            &mut commands,
+                            &audio,
+                        );
+                    }
                 }
+                should_despawn = true;
             }
-            if should_despawn {
-                commands.entity(entity).try_despawn();
-            }
+        }
+
+        if should_despawn {
+            commands.entity(entity).try_despawn();
         }
     }
 }

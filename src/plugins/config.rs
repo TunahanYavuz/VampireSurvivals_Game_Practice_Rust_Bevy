@@ -10,6 +10,7 @@ pub struct GameConfig{
     pub player: PlayerConfig,
     pub enemies: Vec<EnemyConfig>,
     pub stages: Vec<StageConfig>,
+    pub boss: BossConfig,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -47,6 +48,20 @@ pub struct StageConfig {
     pub damage_multiplier: f32,
     pub spawn_rate: f32,
     pub enemy_type_index: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct BossConfig {
+    /// How many in-game minutes between boss spawns.
+    pub spawn_interval_minutes: u32,
+    /// Multiplier applied to the base enemy health (100 HP).
+    pub health_multiplier: f32,
+    /// Speed multiplier relative to base speed 40 u/s.
+    pub speed_multiplier: f32,
+    /// Multiplier applied to base damage (10).
+    pub damage_multiplier: f32,
+    /// XP dropped on death.
+    pub xp_drop: i32,
 }
 
 fn load_config() -> GameConfig {

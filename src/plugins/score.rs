@@ -1,5 +1,6 @@
 use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
+use crate::plugins::locale::Locale;
 use crate::plugins::player::Player;
 use crate::plugins::timers::GameTimer;
 use bevy::prelude::*;
@@ -43,22 +44,41 @@ pub fn setup_score_ui(mut commands: Commands) {
         ScoreText,
     ));
 }
+
 pub fn update_score_ui(
-    player: Single<&Player>,
+    players: Query<&Player>,
     mut query: Query<&mut Text, With<ScoreText>>,
     game_timer: Res<GameTimer>,
     stage_manager: Res<GameStageManager>,
+    locale: Res<Locale>,
 ) {
     let elapsed = game_timer.elapsed_secs as u32;
     let minutes = elapsed / 60;
     let seconds = elapsed % 60;
     let stage = stage_manager.current_stage_index + 1;
 
+    // Aggregate across all players — use primary player (index 0) for XP display.
+    let (total_score, total_hp) = players
+        .iter()
+        .fold((0u32, 0u32), |(s, h), p| (s + p.score, h + p.health));
+
+    let primary = players.iter().find(|p| p.player_index == 0);
+    let (xp, xp_next, level) = primary
+        .map(|p| (p.xp, p.xp_to_next_level, p.level))
+        .unwrap_or((0.0, 100.0, 1));
+
     for mut text in query.iter_mut() {
         text.0 = format!(
-            "Score: {}\nXP: {} | XP to next: {}\nPlayer HP: {}\nStage: {} ({}:{:02} elapsed)",
-            player.score, player.xp, player.xp_to_next_level, player.health,
-            stage, minutes, seconds,
+            "{}: {total_score}\n{}: {xp:.0} | {}: {xp_next:.0}\n{} (all): {total_hp}\nLv {level} | {}: {} ({}:{:02} {})",
+            locale.t("score_label"),
+            locale.t("xp_label"),
+            locale.t("xp_to_next"),
+            locale.t("player_hp"),
+            locale.t("stage_label"),
+            stage,
+            minutes,
+            seconds,
+            locale.t("elapsed"),
         );
     }
 }
