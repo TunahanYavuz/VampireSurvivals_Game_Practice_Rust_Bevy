@@ -9,6 +9,7 @@ pub struct GameConfig{
     pub window: WindowConfig,
     pub player: PlayerConfig,
     pub enemies: Vec<EnemyConfig>,
+    pub stages: Vec<StageConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -36,6 +37,16 @@ pub struct EnemyConfig{
     pub damage: i32,
     pub spawn_rate: f32,
     pub xp_drop: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct StageConfig {
+    pub minute: u32,
+    pub health_multiplier: f32,
+    pub speed_multiplier: f32,
+    pub damage_multiplier: f32,
+    pub spawn_rate: f32,
+    pub enemy_type_index: usize,
 }
 
 fn load_config() -> GameConfig {
