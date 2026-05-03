@@ -14,6 +14,7 @@ pub enum TextureType {
     Elf,
     Robot,
     Sword,
+    Vampire,
 }
 
 #[derive(Resource)]
@@ -34,6 +35,7 @@ impl FromWorld for TextureAssets {
         textures.insert(TextureType::Elf, asset_server.load("sprites/elf.png"));
         textures.insert(TextureType::Robot, asset_server.load("sprites/robot1.png"));
         textures.insert(TextureType::Sword, asset_server.load("sprites/sword.png"));
+        textures.insert(TextureType::Vampire, asset_server.load("sprites/vampire.png"));
         Self { textures }
     }
 }

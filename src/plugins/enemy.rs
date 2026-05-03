@@ -15,7 +15,6 @@ use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
 use std::f32::consts::PI;
-use strum::EnumCount;
 use crate::plugins::config::Config;
 use crate::plugins::reinforcements::spawn_reinforcement;
 
@@ -267,11 +266,11 @@ pub fn spawn_enemies(
             let base_speed = base.speed;
             let base_damage = base.damage;
 
-            let level = stage_manager.current_stage_index;
-            let texture_type = if let Some(texture_type) = TextureType::from_repr(level + 1) && level <= TextureType::COUNT - 2 {
-                texture_type
-            } else {
-                TextureType::Robot
+            let texture_type = match enemy_type_index {
+                0 => TextureType::Zombie,
+                1 => TextureType::Knight,
+                2 => TextureType::Vampire,
+                _ => TextureType::Robot,
             };
 
             let spirit = Sprite::from_atlas_image(
