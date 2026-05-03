@@ -1,10 +1,10 @@
 use crate::plugins::common::GameEntity;
-use crate::plugins::enemy::EnemyPowerUpTimer;
+use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use crate::plugins::timers::{EnemySpawnTimer, MoveTimer, PlayerHealthReduceTimer};
+use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
@@ -175,7 +175,8 @@ fn restart_on_key(
     mut spawn_timer: ResMut<EnemySpawnTimer>,
     mut move_timer: ResMut<MoveTimer>,
     mut reduce_timer: ResMut<PlayerHealthReduceTimer>,
-    mut enemy_power: ResMut<EnemyPowerUpTimer>,
+    mut game_timer: ResMut<GameTimer>,
+    mut stage_manager: ResMut<GameStageManager>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Resource'ları resetle
@@ -183,7 +184,8 @@ fn restart_on_key(
         *spawn_timer = EnemySpawnTimer::default();
         *move_timer = MoveTimer::default();
         *reduce_timer = PlayerHealthReduceTimer::default();
-        *enemy_power = EnemyPowerUpTimer::default();
+        *game_timer = GameTimer::default();
+        *stage_manager = GameStageManager::default();
         next_state.set(GameState::Loading);
     }
 }

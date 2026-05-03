@@ -4,7 +4,7 @@ use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use crate::plugins::timers::{EnemySpawnTimer, MoveTimer};
+use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer};
 use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
@@ -24,7 +24,7 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EnemySpawnTimer>()
-            .init_resource::<EnemyPowerUpTimer>()
+            .init_resource::<GameStageManager>()
             .add_systems(
                 Update,
                 (
@@ -32,6 +32,7 @@ impl Plugin for EnemyPlugin {
                     follow,
                     enemy_collision_with_enemy,
                     despawn_enemies,
+                    apply_stage_to_existing_enemies,
                 )
                     .chain()
                     .run_if(in_state(GameState::Playing)),
@@ -47,6 +48,9 @@ pub struct Enemy {
     pub xp_drop: i32,
     pub should_despawn: bool,
     pub drops_loot: bool,
+    pub base_health: i32,
+    pub base_speed: f32,
+    pub base_damage: i32,
 }
 
 impl Default for Enemy {
@@ -58,20 +62,22 @@ impl Default for Enemy {
             xp_drop: 10,
             should_despawn: false,
             drops_loot: true,
+            base_health: 100,
+            base_speed: 50.0,
+            base_damage: 10,
         }
     }
 }
+
 #[derive(Resource)]
-pub struct EnemyPowerUpTimer {
-    pub timer: Timer,
-    pub level: usize,
+pub struct GameStageManager {
+    pub current_stage_index: usize,
 }
 
-impl Default for EnemyPowerUpTimer {
+impl Default for GameStageManager {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(40.0, TimerMode::Repeating),
-            level: 1,
+            current_stage_index: 0,
         }
     }
 }
@@ -175,6 +181,7 @@ pub fn follow(
         }
     }
 }
+
 pub fn spawn_enemies(
     mut commands: Commands,
     time: Res<Time>,
@@ -183,23 +190,30 @@ pub fn spawn_enemies(
     atlases: Res<Atlases>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     textures: Res<TextureAssets>,
-    mut enemy_power: ResMut<EnemyPowerUpTimer>,
+    mut stage_manager: ResMut<GameStageManager>,
+    game_timer: Res<GameTimer>,
     config: Res<Config>,
 ) {
-    enemy_power.timer.tick(time.delta());
+    let stages = &config.0.stages;
     let enemies = &config.0.enemies;
-    if enemy_power.timer.just_finished() {
-        enemy_power.level += 1;
 
-        let timer = match enemy_power.level {
-            1 => {Timer::from_seconds(enemies[0].spawn_rate, TimerMode::Repeating)},
-            2 => {Timer::from_seconds(enemies[1].spawn_rate, TimerMode::Repeating)},
-            3 => {Timer::from_seconds(enemies[2].spawn_rate, TimerMode::Repeating)},
-            _ => {Timer::from_seconds(2.0, TimerMode::Repeating)}
-        };
-        spawn_timer.timer = timer;
+    // Determine which stage should be active based on elapsed time
+    let elapsed_minutes = (game_timer.elapsed_secs / 60.0) as u32;
+    let new_stage_index = stages
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.minute <= elapsed_minutes)
+        .map(|(i, _)| i)
+        .last()
+        .unwrap_or(0);
+
+    // Update spawn timer if the stage changed
+    if new_stage_index != stage_manager.current_stage_index {
+        stage_manager.current_stage_index = new_stage_index;
+        if let Some(stage) = stages.get(new_stage_index) {
+            spawn_timer.timer = Timer::from_seconds(stage.spawn_rate, TimerMode::Repeating);
+        }
     }
-    let level = enemy_power.level;
 
     spawn_timer.timer.tick(time.delta());
     if !spawn_timer.timer.just_finished() {
@@ -227,41 +241,48 @@ pub fn spawn_enemies(
         if let Some(body_rect) = body_lay.textures.get(0) {
             let b_width = body_rect.width() as f32 / 2. - 10.;
             let b_height = body_rect.height() as f32 / 2. - 10.;
-            let texture_type = if let Some(texture_type) = TextureType::from_repr(level+1) && level <= TextureType::COUNT-2 {
+
+            // Get the current stage config (fall back to last stage if beyond all stages)
+            let stage = stages
+                .get(stage_manager.current_stage_index)
+                .or_else(|| stages.last());
+
+            let (enemy_type_index, health_mul, speed_mul, damage_mul) = match stage {
+                Some(s) => (s.enemy_type_index, s.health_multiplier, s.speed_multiplier, s.damage_multiplier),
+                None => (0, 1.0, 1.0, 1.0),
+            };
+
+            let enemy_type_index = enemy_type_index.min(enemies.len().saturating_sub(1));
+            let base = &enemies[enemy_type_index];
+
+            let base_health = base.health;
+            let base_speed = base.speed;
+            let base_damage = base.damage;
+
+            let level = stage_manager.current_stage_index;
+            let texture_type = if let Some(texture_type) = TextureType::from_repr(level + 1) && level <= TextureType::COUNT - 2 {
                 texture_type
             } else {
                 TextureType::Robot
             };
-            let (spirit, enemy) = match level {
-                n@ (0..=2)  =>
-                    (Sprite::from_atlas_image(
-                    textures.textures.get(&texture_type).unwrap().clone(),
-                    TextureAtlas {
-                        layout: body_atlas,
-                        index: 15,
-                    },
-                ),Enemy{
-                    health: enemies[n].health,
-                    damage: enemies[n].damage,
-                    speed: enemies[n].speed,
-                    xp_drop: enemies[n].xp_drop,
-                    should_despawn: false,
-                    drops_loot: true,
-                }),
-                _ => (Sprite::from_atlas_image(
-                    textures.textures.get(&texture_type).unwrap().clone(),
-                    TextureAtlas {
-                        layout: body_atlas,
-                        index: 15,
-                    },
-                ),Enemy{
-                    health: enemies[2].health,
-                    damage: enemies[2].damage,
-                    speed: enemies[2].speed,
-                    xp_drop: enemies[2].xp_drop,
-                    should_despawn: false,
-                    drops_loot: true,
-                }),
+
+            let spirit = Sprite::from_atlas_image(
+                textures.textures.get(&texture_type).unwrap().clone(),
+                TextureAtlas {
+                    layout: body_atlas,
+                    index: 15,
+                },
+            );
+            let enemy = Enemy {
+                health: (base_health as f32 * health_mul).round() as i32,
+                speed: base_speed * speed_mul,
+                damage: (base_damage as f32 * damage_mul).round() as i32,
+                xp_drop: base.xp_drop,
+                should_despawn: false,
+                drops_loot: true,
+                base_health,
+                base_speed,
+                base_damage,
             };
 
             commands
@@ -291,6 +312,61 @@ pub fn spawn_enemies(
                     ));
                 });
         }
+    }
+}
+
+pub fn apply_stage_to_existing_enemies(
+    stage_manager: Res<GameStageManager>,
+    config: Res<Config>,
+    mut enemy_query: Query<&mut Enemy>,
+) {
+    if !stage_manager.is_changed() {
+        return;
+    }
+
+    let stages = &config.0.stages;
+    let enemies_cfg = &config.0.enemies;
+
+    let stage = stages
+        .get(stage_manager.current_stage_index)
+        .or_else(|| stages.last());
+
+    let (enemy_type_index, health_mul, speed_mul, damage_mul) = match stage {
+        Some(s) => (s.enemy_type_index, s.health_multiplier, s.speed_multiplier, s.damage_multiplier),
+        None => return,
+    };
+
+    let enemy_type_index = enemy_type_index.min(enemies_cfg.len().saturating_sub(1));
+    let base_cfg = &enemies_cfg[enemy_type_index];
+
+    for mut enemy in enemy_query.iter_mut() {
+        // Recalculate from stored base values using new multipliers
+        let new_max_health = (enemy.base_health as f32 * health_mul).round() as i32;
+        let new_speed = enemy.base_speed * speed_mul;
+        let new_damage = (enemy.base_damage as f32 * damage_mul).round() as i32;
+
+        // Scale current health proportionally
+        let health_ratio = if enemy.health > 0 && new_max_health > 0 {
+            enemy.health as f32 / (enemy.base_health as f32 * {
+                // find previous multiplier by looking at the previous stage
+                if stage_manager.current_stage_index > 0 {
+                    stages[stage_manager.current_stage_index - 1].health_multiplier
+                } else {
+                    1.0
+                }
+            }).max(1.0)
+        } else {
+            1.0
+        };
+        let scaled_health = (new_max_health as f32 * health_ratio.min(1.0)).round() as i32;
+
+        enemy.health = scaled_health.max(1);
+        enemy.speed = new_speed;
+        enemy.damage = new_damage;
+        // Update base fields to match the new enemy type baseline
+        enemy.base_health = base_cfg.health;
+        enemy.base_speed = base_cfg.speed;
+        enemy.base_damage = base_cfg.damage;
     }
 }
 

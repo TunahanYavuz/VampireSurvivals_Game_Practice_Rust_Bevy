@@ -38,5 +38,13 @@
             spawn_rate: 0.2,
             xp_drop: 40,
         ),
+    ],
+    stages: [
+        ( minute: 0,  health_multiplier: 1.0, speed_multiplier: 1.0, damage_multiplier: 1.0, spawn_rate: 1.0,  enemy_type_index: 0 ),
+        ( minute: 1,  health_multiplier: 1.2, speed_multiplier: 1.1, damage_multiplier: 1.0, spawn_rate: 0.8,  enemy_type_index: 0 ),
+        ( minute: 2,  health_multiplier: 1.5, speed_multiplier: 1.2, damage_multiplier: 1.5, spawn_rate: 0.5,  enemy_type_index: 1 ),
+        ( minute: 3,  health_multiplier: 2.0, speed_multiplier: 1.4, damage_multiplier: 2.0, spawn_rate: 0.3,  enemy_type_index: 1 ),
+        ( minute: 5,  health_multiplier: 3.0, speed_multiplier: 1.6, damage_multiplier: 3.0, spawn_rate: 0.2,  enemy_type_index: 2 ),
+        ( minute: 10, health_multiplier: 5.0, speed_multiplier: 2.0, damage_multiplier: 5.0, spawn_rate: 0.15, enemy_type_index: 2 ),
     ]
 )

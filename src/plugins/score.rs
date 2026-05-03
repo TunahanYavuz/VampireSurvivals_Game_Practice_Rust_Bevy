@@ -1,5 +1,7 @@
+use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::player::Player;
+use crate::plugins::timers::GameTimer;
 use bevy::prelude::*;
 
 pub struct ScorePlugin;
@@ -41,11 +43,22 @@ pub fn setup_score_ui(mut commands: Commands) {
         ScoreText,
     ));
 }
-pub fn update_score_ui(player: Single<&Player>, mut query: Query<&mut Text, With<ScoreText>>) {
+pub fn update_score_ui(
+    player: Single<&Player>,
+    mut query: Query<&mut Text, With<ScoreText>>,
+    game_timer: Res<GameTimer>,
+    stage_manager: Res<GameStageManager>,
+) {
+    let elapsed = game_timer.elapsed_secs as u32;
+    let minutes = elapsed / 60;
+    let seconds = elapsed % 60;
+    let stage = stage_manager.current_stage_index + 1;
+
     for mut text in query.iter_mut() {
         text.0 = format!(
-            "Score: {}\nXP:{}\nXP to next level:{}\nPlayer HP: {}",
-            player.score, player.xp, player.xp_to_next_level, player.health
+            "Score: {}\nXP: {} | XP to next: {}\nPlayer HP: {}\nStage: {} ({}:{:02} elapsed)",
+            player.score, player.xp, player.xp_to_next_level, player.health,
+            stage, minutes, seconds,
         );
     }
 }
