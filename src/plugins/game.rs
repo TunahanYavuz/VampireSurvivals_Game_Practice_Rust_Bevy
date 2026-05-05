@@ -3,7 +3,7 @@ use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
-    ClientEntityMap, GhostEntity, NetworkRole, PendingEntitySnapshots, VisualType,
+    ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingEntitySnapshots, VisualType,
 };
 use crate::plugins::player::{Player, flush_stat_snapshot};
 use crate::plugins::score::GameScore;
@@ -29,7 +29,10 @@ impl Plugin for GamePlugin {
             // Startup systems
             .add_systems(Startup, minimal_setup)
             // State transitions
-            .add_systems(OnEnter(GameState::Loading), (cleanup_game, clear_client_map).chain())
+            .add_systems(
+                OnEnter(GameState::Loading),
+                (cleanup_game, clear_client_map, reset_session_resources).chain(),
+            )
             .add_systems(
                 OnEnter(GameState::GameOver),
                 (cleanup_game, clear_client_map, show_game_over_screen).chain(),
@@ -206,6 +209,21 @@ fn cleanup_game(
 /// Client tarafında ghost varlık haritasını sıfırla (restart / loading geçişinde).
 fn clear_client_map(mut client_map: ResMut<ClientEntityMap>) {
     client_map.0.clear();
+}
+
+/// Yeni oyun oturumu için anlık kaynakları sıfırla.
+///
+/// `NetIdCounter` sıfırlanır ki host yeni entity ID'leri 1'den başlatsın.
+/// `GameTimer` sıfırlanır ki istemci saatle uyumlu başlasın.
+/// `PendingEntitySnapshots` temizlenir ki eski snapshot'lar yeni oyuna sızmasın.
+fn reset_session_resources(
+    mut net_id_counter: ResMut<NetIdCounter>,
+    mut game_timer: ResMut<GameTimer>,
+    mut pending_entity_snaps: ResMut<PendingEntitySnapshots>,
+) {
+    net_id_counter.0 = 0;
+    game_timer.elapsed_secs = 0.0;
+    pending_entity_snaps.0.clear();
 }
 
 /// GameOver ekranını göster

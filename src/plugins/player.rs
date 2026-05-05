@@ -8,7 +8,7 @@ use crate::plugins::network::{
     NetworkIdentity, EntitySnapshot, TransformSnapshot,
     encode,
 };
-use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer};
+use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer, GameTimer};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
@@ -348,12 +348,14 @@ fn send_client_input(
 
 /// Client: apply the latest stat snapshot received from the host.
 ///
-/// The host is authoritative for health, XP, level, and score.  We override
-/// local values so the client HUD always shows accurate figures.
+/// The host is authoritative for health, XP, level, score, and **position**.
+/// We override local values so the client HUD always shows accurate figures,
+/// and move player sprites to match the host's world state.
 fn apply_stat_snapshot(
     role: Res<NetworkRole>,
     mut pending: ResMut<PendingStatSnapshot>,
-    mut players: Query<&mut Player>,
+    mut players: Query<(&mut Player, &mut Transform, &mut Aabb)>,
+    mut game_timer: ResMut<GameTimer>,
 ) {
     if *role != NetworkRole::Client {
         return;
@@ -361,17 +363,32 @@ fn apply_stat_snapshot(
     let Some(snap) = pending.0.take() else {
         return;
     };
-    for mut player in players.iter_mut() {
-        let stat: &PlayerStat = if player.player_index == 0 {
-            &snap.p1
+
+    // Sync the game clock.
+    game_timer.elapsed_secs = snap.game_elapsed_secs;
+
+    for (mut player, mut transform, mut aabb) in players.iter_mut() {
+        let (stat, pos): (&PlayerStat, [f32; 2]) = if player.player_index == 0 {
+            (&snap.p1, snap.p1_pos)
         } else {
-            &snap.p2
+            (&snap.p2, snap.p2_pos)
         };
+
+        // Sync stats.
         player.health = stat.health;
         player.xp = stat.xp;
         player.level = stat.level;
         player.xp_to_next_level = stat.xp_to_next_level;
         player.score = stat.score;
+
+        // Sync position for P1 (authoritative from host).
+        // P2's position is handled locally on the client, but we sync it too
+        // for consistency — the server's position is always the truth.
+        if pos != [0.0_f32, 0.0_f32] {
+            transform.translation.x = pos[0];
+            transform.translation.y = pos[1];
+            aabb.center = transform.translation.to_vec3a();
+        }
     }
 }
 
@@ -382,12 +399,16 @@ fn apply_stat_snapshot(
 /// `StatSnapshotMsg::entities`.  The client's `client_entity_sync` system
 /// consumes that list to keep the ghost world in sync.
 ///
+/// Player positions are sent separately as `p1_pos`/`p2_pos` so the client
+/// can smoothly move the P1 and P2 sprites.
+///
 /// Called every frame when running as host so the client stays in sync.
 pub fn flush_stat_snapshot(
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
-    players: Query<&Player>,
+    players: Query<(&Player, &Transform)>,
     net_entities: Query<(&NetworkIdentity, &Transform)>,
+    game_timer: Res<GameTimer>,
 ) {
     if *role != NetworkRole::Host {
         return;
@@ -395,7 +416,7 @@ pub fn flush_stat_snapshot(
     let Some(outbox) = outbox else { return };
 
     let mut msg = StatSnapshotMsg::default();
-    for player in players.iter() {
+    for (player, transform) in players.iter() {
         let stat = PlayerStat {
             health: player.health,
             xp: player.xp,
@@ -405,8 +426,10 @@ pub fn flush_stat_snapshot(
         };
         if player.player_index == 0 {
             msg.p1 = stat;
+            msg.p1_pos = [transform.translation.x, transform.translation.y];
         } else {
             msg.p2 = stat;
+            msg.p2_pos = [transform.translation.x, transform.translation.y];
         }
     }
 
@@ -419,6 +442,9 @@ pub fn flush_stat_snapshot(
             transform: TransformSnapshot::from_transform(transform),
         })
         .collect();
+
+    // Sync the host's game clock so the client HUD shows the same time.
+    msg.game_elapsed_secs = game_timer.elapsed_secs;
 
     use crate::plugins::network::S2C;
     if let Ok(frame) = encode(&S2C::StatSnapshot(msg)) {

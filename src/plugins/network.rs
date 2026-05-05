@@ -113,6 +113,13 @@ pub struct StatSnapshotMsg {
     pub p2: PlayerStat,
     /// Positions of every replicated game entity this frame.
     pub entities: Vec<EntitySnapshot>,
+    /// Host-authoritative world-space position of Player 1 `[x, y]`.
+    pub p1_pos: [f32; 2],
+    /// Host-authoritative world-space position of Player 2 `[x, y]`.
+    pub p2_pos: [f32; 2],
+    /// Host-authoritative elapsed game time in seconds.
+    /// The client overwrites its local `GameTimer` with this value every frame.
+    pub game_elapsed_secs: f32,
 }
 
 // ─────────────────────────── Generic entity replication ──────────────────
