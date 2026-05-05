@@ -5,6 +5,7 @@ use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::network::{
     C2S, NetworkRole, NetOutbox, PendingStatSnapshot, RemoteInput, StatSnapshotMsg, PlayerStat,
+    NetworkIdentity, EntitySnapshot, TransformSnapshot,
     encode,
 };
 use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer};
@@ -376,11 +377,17 @@ fn apply_stat_snapshot(
 
 /// Host: build a `StatSnapshotMsg` from the current player components and queue it.
 ///
+/// In addition to player stats, this system gathers the `Transform` of every
+/// entity that carries a `NetworkIdentity` and packs them into
+/// `StatSnapshotMsg::entities`.  The client's `client_entity_sync` system
+/// consumes that list to keep the ghost world in sync.
+///
 /// Called every frame when running as host so the client stays in sync.
 pub fn flush_stat_snapshot(
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
     players: Query<&Player>,
+    net_entities: Query<(&NetworkIdentity, &Transform)>,
 ) {
     if *role != NetworkRole::Host {
         return;
@@ -402,6 +409,17 @@ pub fn flush_stat_snapshot(
             msg.p2 = stat;
         }
     }
+
+    // Gather world state: every replicated entity's current transform.
+    msg.entities = net_entities
+        .iter()
+        .map(|(nid, transform)| EntitySnapshot {
+            net_id: nid.net_id,
+            visual_type: nid.visual_type,
+            transform: TransformSnapshot::from_transform(transform),
+        })
+        .collect();
+
     use crate::plugins::network::S2C;
     if let Ok(frame) = encode(&S2C::StatSnapshot(msg)) {
         let _ = outbox.0.send(frame);

@@ -21,6 +21,7 @@
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
@@ -117,9 +118,16 @@ pub struct StatSnapshotMsg {
 // ─────────────────────────── Generic entity replication ──────────────────
 
 /// Marks a game entity that the host should replicate to connected clients.
-/// The wrapped `u32` is a stable per-session network identifier.
+///
+/// Carries both the stable per-session network identifier **and** the visual
+/// class the client needs in order to decide which sprite / mesh to draw.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct NetworkIdentity(pub u32);
+pub struct NetworkIdentity {
+    /// Monotonically increasing ID assigned by the host at spawn time.
+    pub net_id: u32,
+    /// Visual class — consumed by the client sync system to choose a renderer.
+    pub visual_type: VisualType,
+}
 
 /// Monotonic counter that the host uses to hand out unique `NetworkIdentity` IDs.
 /// Only meaningful on the host / solo machine.
@@ -298,6 +306,22 @@ pub struct PendingStateChange(pub Option<NetworkedGameState>);
 #[derive(Resource, Default)]
 pub struct PendingEntitySnapshots(pub Vec<EntitySnapshot>);
 
+// ─────────────────────────── Client ghost tracking ───────────────────────
+
+/// Marks a client-side ghost entity created by the sync system.
+///
+/// The wrapped value is the `net_id` of the corresponding host entity.
+/// Ghost entities carry **only** visual components — no physics, damage, or AI.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct GhostEntity(pub u32);
+
+/// Maps `net_id → client Entity` for all live ghost entities.
+///
+/// Updated every frame by `client_entity_sync`.
+/// Only meaningful on the client machine.
+#[derive(Resource, Default)]
+pub struct ClientEntityMap(pub HashMap<u32, Entity>);
+
 // ─────────────────────────── Plugin ──────────────────────────────────────
 
 pub struct NetworkPlugin;
@@ -310,6 +334,7 @@ impl Plugin for NetworkPlugin {
             .init_resource::<NetIdCounter>()
             .init_resource::<PendingStatSnapshot>()
             .init_resource::<PendingEntitySnapshots>()
+            .init_resource::<ClientEntityMap>()
             .init_resource::<PendingUpgradeOptions>()
             .init_resource::<PendingUpgradeApplied>()
             .init_resource::<PendingClientUpgradeChoice>()
