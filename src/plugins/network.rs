@@ -38,6 +38,53 @@ use crate::plugins::game_state::GameState;
 /// TCP port the host listens on.
 pub const NET_PORT: u16 = 7777;
 
+// Tüm ağ objelerinin benzersiz bir ID' si olmalı ki Host ve Client aynı obje olduğunu anlasın
+pub type NetId = u32;
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct TransformSnapshot {
+    pub x: f32,
+    pub y: f32,
+    pub rotation: f32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct EnemySnapshot {
+    pub net_id: NetId,
+    pub enemy_type: u8, // Görsel tip
+    pub transform: TransformSnapshot,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct PlayerSnapshot {
+    pub stat: PlayerStat,
+    pub transform: TransformSnapshot,
+}
+
+// Host' un her tick' te göndereceği ana paket
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct StatSnapshotMsg {
+    pub p1: PlayerSnapshot,
+    pub p2: PlayerSnapshot,
+    pub enemies: Vec<EnemySnapshot>,
+}
+
+#[derive(Component)]
+pub struct NetworkIdentity(pub NetId);
+
+use std::collections::HashMap;
+use std::future::pending;
+use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
+use crate::plugins::game::Atlases;
+use crate::plugins::player::Player;
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
+use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_lazer_weapon, spawn_rocket_weapon};
+
+#[derive(Resource, Default)]
+pub struct LocalNetworkMapping(pub HashMap<NetId, Entity>);
+#[derive(Resource, Default)]
+pub struct NetIdGenerator(pub u32);
+
 // ─────────────────────────── Message types ───────────────────────────────
 
 /// Messages the client sends to the host every frame / on events.
@@ -103,13 +150,6 @@ pub struct PlayerStat {
     pub level: i32,
     pub xp_to_next_level: f32,
     pub score: u32,
-}
-
-/// Full snapshot broadcast by the host each frame.
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct StatSnapshotMsg {
-    pub p1: PlayerStat,
-    pub p2: PlayerStat,
 }
 
 // ──────────────────────────── Upgrade mode ───────────────────────────────
@@ -215,9 +255,14 @@ impl Plugin for NetworkPlugin {
             .init_resource::<PendingUpgradeApplied>()
             .init_resource::<PendingClientUpgradeChoice>()
             .init_resource::<PendingStateChange>()
+            .init_resource::<NetIdGenerator>()
+            .init_resource::<LocalNetworkMapping>()
             .add_systems(
                 Update,
                 (
+                    host_send_snapshot_system,
+                    client_sync_enemies_system,
+                    appy_weapon_visual_system,
                     poll_pending_connection,
                     drain_inbox,
                     apply_pending_state,
@@ -225,6 +270,151 @@ impl Plugin for NetworkPlugin {
             );
     }
 }
+
+
+fn host_send_snapshot_system(
+    players: Query<(&Transform, &Player)>,
+    role: Res<NetworkRole>,
+    outbox: Option<Res<NetOutbox>>,
+    enemy_query: Query<(&NetworkIdentity, &Transform)>,
+){
+    if *role != NetworkRole::Host {return;}
+    let Some(outbox) = outbox else { return; };
+    let mut enemies_snap = Vec::new();
+    for (net_id, transform) in enemy_query.iter() {
+        enemies_snap.push(EnemySnapshot {
+            net_id: net_id.0,
+            enemy_type: 0,
+            transform: TransformSnapshot {
+                x: transform.translation.x,
+                y: transform.translation.y,
+                rotation: transform.rotation.z,
+            },
+        });
+    }
+    let mut p1_snap = PlayerSnapshot::default();
+    let mut p2_snap = PlayerSnapshot::default();
+
+    for (transform, player) in players.iter() {
+        let snap = PlayerSnapshot {
+            stat: PlayerStat {
+                health: player.health,
+                xp: player.xp,
+                level: player.level,
+                xp_to_next_level: player.xp_to_next_level,
+                score: player.score,
+            },
+            transform: TransformSnapshot {
+                x: transform.translation.x,
+                y: transform.translation.y,
+                rotation: transform.rotation.z,
+            },
+        };
+        if player.player_index == 0 {
+            p1_snap = snap;
+        } else if player.player_index == 1 {
+            p2_snap = snap;
+        }
+    }
+
+
+    let snapshot = StatSnapshotMsg {
+        p1: p1_snap,
+        p2: p2_snap,
+        enemies: enemies_snap,
+    };
+    if let Ok(frame) = encode(&S2C::StatSnapshot(snapshot)) {
+        let _ = outbox.0.send(frame);
+    }
+}
+
+fn client_sync_enemies_system(
+    role: Res<NetworkRole>,
+    mut pending_snap: ResMut<PendingStatSnapshot>,
+    mut mapping: ResMut<LocalNetworkMapping>,
+    mut commands: Commands,
+    mut transform_query: Query<&mut Transform>,
+    atlases: Res<Atlases>,
+    textures: Res<TextureAssets>,
+
+){
+    if *role != NetworkRole::Client {return;}
+    if let Some(snap) = pending_snap.0.take(){
+
+        let mut alive_host_ids = std::collections::HashSet::new();
+        for enemy in snap.enemies {
+            alive_host_ids.insert(enemy.net_id);
+
+            if let Some(&local_entity) = mapping.0.get(&enemy.net_id) {
+                // Düşman zaten var transform güncelle
+                if let Ok(mut transform) = transform_query.get_mut(local_entity) {
+                    transform.translation.x = enemy.transform.x;
+                    transform.translation.y = enemy.transform.y;
+                    transform.rotation.z = enemy.transform.rotation;
+                }
+            }else {
+                let body_atlas = atlases.body.as_ref().unwrap().clone();
+                //Yeni düşman oluştur
+                let new_entity = commands.spawn((
+                    Sprite::from_atlas_image(
+                        textures.textures.get(&TextureType::Zombie).unwrap().clone(),
+                        TextureAtlas {
+                            layout: body_atlas,
+                            index: 15,
+                        },
+                    ),
+                    Transform::from_xyz(enemy.transform.x, enemy.transform.y, enemy.transform.y),
+                    NoFrustumCulling,
+                    NoAutoAabb,
+                )
+                ).id();
+                mapping.0.insert(enemy.net_id, new_entity);
+            }
+        }
+
+        // Hostta olmayan düşmanları sil
+        mapping.0.retain(|&net_id, &mut local_entity| {
+            if !alive_host_ids.contains(&net_id) {
+                commands.entity(local_entity).despawn();
+                commands.entity(local_entity).queue_handled(|entity: EntityWorldMut| -> Result {
+                   entity.despawn();
+                    Ok(())
+                }, bevy::ecs::error::warn);
+                false
+            }else { true }
+        })
+    }
+}
+
+fn appy_weapon_visual_system(
+    mut commands: Commands,
+    mut pending_upgrade: ResMut<PendingUpgradeApplied>,
+    players: Query<(Entity, &Player)>,
+){
+    let Some((weapon_type, for_player_id)) = pending_upgrade.0.take() else { return; };
+    let mut target_entity = None;
+    for (entity, player) in players.iter() {
+        if player.player_index == for_player_id {
+            target_entity = Some(entity);
+            break;
+        }
+    }
+
+    let Some(p1) = target_entity else { return; };
+
+    match weapon_type {
+        1 => spawn_rocket_weapon(
+            &mut commands,
+            p1,
+        ),
+        2 => spawn_lazer_weapon(
+            &mut commands,
+            p1,
+        ),
+        _ => {}
+    }
+}
+
 
 // ────────────────────────── TCP framing helpers ───────────────────────────
 

@@ -362,9 +362,9 @@ fn apply_stat_snapshot(
     };
     for mut player in players.iter_mut() {
         let stat: &PlayerStat = if player.player_index == 0 {
-            &snap.p1
+            &snap.p1.stat
         } else {
-            &snap.p2
+            &snap.p2.stat
         };
         player.health = stat.health;
         player.xp = stat.xp;
@@ -397,9 +397,9 @@ pub fn flush_stat_snapshot(
             score: player.score,
         };
         if player.player_index == 0 {
-            msg.p1 = stat;
+            msg.p1.stat = stat;
         } else {
-            msg.p2 = stat;
+            msg.p2.stat = stat;
         }
     }
     use crate::plugins::network::S2C;

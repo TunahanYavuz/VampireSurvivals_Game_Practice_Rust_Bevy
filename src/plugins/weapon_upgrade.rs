@@ -471,7 +471,7 @@ pub fn handle_upgrade_input(
             // Client: in Mode A (P2's upgrade), send the choice to the host
             // instead of applying locally.  The host will broadcast UpgradeApplied.
             if *role == NetworkRole::Client {
-                if let (Some(ref outbox), Some(1)) = (&outbox, upgrade_choices.for_player) {
+                if let (Some( outbox), Some(1)) = (&outbox, upgrade_choices.for_player) {
                     use crate::plugins::network::C2S;
                     if let Ok(frame) =
                         encode(&C2S::UpgradeChosen(upgrade_button.0.to_u8()))

@@ -40,9 +40,11 @@ fn main() {
                 GroundPlugin,
                 GameAudioPlugin,
                 TimerPlugin,
-                MainMenuPlugin,
-                LobbyPlugin,
-                SettingsPlugin,
+        ))
+        .add_plugins((
+            MainMenuPlugin,
+                      LobbyPlugin,
+                      SettingsPlugin,
         ))
         .init_state::<GameState>()
 
