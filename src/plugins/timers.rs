@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::plugins::game_state::GameState;
+use crate::plugins::network::NetworkRole;
 
 pub struct TimerPlugin;
 
@@ -17,7 +18,18 @@ pub struct GameTimer {
     pub elapsed_secs: f32,
 }
 
-fn tick_game_timer(time: Res<Time>, mut game_timer: ResMut<GameTimer>) {
+/// Advance the game clock each frame.
+///
+/// On the **client** the game clock is driven by the host snapshot
+/// (`apply_stat_snapshot`), so we skip local ticking to avoid drift.
+fn tick_game_timer(
+    time: Res<Time>,
+    mut game_timer: ResMut<GameTimer>,
+    role: Res<NetworkRole>,
+) {
+    if *role == NetworkRole::Client {
+        return;
+    }
     game_timer.elapsed_secs += time.delta_secs();
 }
 

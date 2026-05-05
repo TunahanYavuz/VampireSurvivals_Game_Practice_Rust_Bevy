@@ -7,6 +7,7 @@ use crate::plugins::audio::GameAudio;
 use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Collectible, Enemy, XP};
 use crate::plugins::game_state::GameState;
+use crate::plugins::network::{NetIdCounter, NetworkIdentity, VisualType};
 use crate::plugins::player::{Player, XPMagnetite};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
 
@@ -41,10 +42,15 @@ pub fn spawn_reinforcement(
     amount: i32,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
+    net_id_counter: &mut NetIdCounter,
 ) {
     commands.spawn((
         Collectible,
         XP{ is_collected: false, amount },
+        NetworkIdentity {
+            net_id: net_id_counter.next(),
+            visual_type: VisualType::XpGem,
+        },
         Aabb {
             center: position.to_vec3a(),
             half_extents: Vec3A::new(40.0, 40.0, 1.0),
@@ -73,6 +79,10 @@ pub fn spawn_reinforcement(
                 Reinforcements {
                     reinforcement_type,
                     is_collected: false,
+                },
+                NetworkIdentity {
+                    net_id: net_id_counter.next(),
+                    visual_type: VisualType::Reinforcement,
                 },
                 Aabb {
                     center: offset_position.to_vec3a(),

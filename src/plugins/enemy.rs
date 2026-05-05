@@ -2,7 +2,7 @@ use crate::plugins::audio::GameAudio;
 use crate::plugins::common::{GameEntity, aabb_intersects};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
-use crate::plugins::network::{NetId, NetIdGenerator, NetworkIdentity, NetworkRole};
+use crate::plugins::network::{NetworkIdentity, NetIdCounter, NetworkRole, VisualType};
 use crate::plugins::player::Player;
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
@@ -12,7 +12,6 @@ use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, };
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
-use bevy::mesh::{Mesh};
 use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
@@ -110,6 +109,7 @@ fn despawn_enemies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     audio: Res<GameAudio>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     for (enemy_entity, mut enemy, transform) in enemy_query.iter_mut() {
         if enemy.health <= 0 && !enemy.should_despawn {
@@ -132,6 +132,7 @@ fn despawn_enemies(
                 enemy.xp_drop,
                 &mut meshes,
                 &mut materials,
+                &mut net_id_counter,
             );
         }
 
@@ -209,7 +210,7 @@ pub fn spawn_enemies(
     mut stage_manager: ResMut<GameStageManager>,
     game_timer: Res<GameTimer>,
     config: Res<Config>,
-    mut net_id_gen: ResMut<NetIdGenerator>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     let stages = &config.0.stages;
     let enemies = &config.0.enemies;
@@ -283,6 +284,13 @@ pub fn spawn_enemies(
                 _ => TextureType::Robot,
             };
 
+            let visual_type = match enemy_type_index {
+                0 => VisualType::Zombie,
+                1 => VisualType::Knight,
+                2 => VisualType::Vampire,
+                _ => VisualType::Robot,
+            };
+
             let spirit = Sprite::from_atlas_image(
                 textures.textures.get(&texture_type).unwrap().clone(),
                 TextureAtlas {
@@ -305,6 +313,10 @@ pub fn spawn_enemies(
             commands
                 .spawn((
                     GameEntity,
+                    NetworkIdentity {
+                        net_id: net_id_counter.next(),
+                        visual_type,
+                    },
                     Transform::from_xyz(x, y, 0.0),
                     enemy,
                     InheritedVisibility::default(),
@@ -313,7 +325,6 @@ pub fn spawn_enemies(
                         half_extents: Vec3::new(b_width, b_height, 0.0).into(),
                     },
                     NoAutoAabb,
-                    NetworkIdentity(net_id_gen.0),
                 ))
                 .with_children(|parent| {
                     parent.spawn((spirit, EnemySprit { index: 0 }));
@@ -329,7 +340,6 @@ pub fn spawn_enemies(
                         EnemySprit { index: 0 },
                     ));
                 });
-            net_id_gen.0 += 1;
         }
     }
 }
@@ -402,4 +412,3 @@ pub fn enemy_collision_with_enemy(mut enemy_query: Query<(&mut Transform, &Aabb)
         }
     }
 }
-
