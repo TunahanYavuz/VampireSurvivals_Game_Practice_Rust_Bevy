@@ -12,7 +12,6 @@ use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, };
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
-use bevy::mesh::{Mesh};
 use bevy::prelude::*;
 use bevy::time::TimerMode;
 use rand::Rng;
@@ -110,6 +109,7 @@ fn despawn_enemies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     audio: Res<GameAudio>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     for (enemy_entity, mut enemy, transform) in enemy_query.iter_mut() {
         if enemy.health <= 0 && !enemy.should_despawn {
@@ -132,6 +132,7 @@ fn despawn_enemies(
                 enemy.xp_drop,
                 &mut meshes,
                 &mut materials,
+                &mut net_id_counter,
             );
         }
 
@@ -312,6 +313,10 @@ pub fn spawn_enemies(
             commands
                 .spawn((
                     GameEntity,
+                    NetworkIdentity {
+                        net_id: net_id_counter.next(),
+                        visual_type,
+                    },
                     Transform::from_xyz(x, y, 0.0),
                     enemy,
                     InheritedVisibility::default(),

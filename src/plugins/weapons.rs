@@ -2,6 +2,7 @@
 use crate::plugins::common::{GameEntity, aabb_intersects, contains_point};
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
+use crate::plugins::network::{NetIdCounter, NetworkIdentity, VisualType};
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::weapon_stats::{Throwable, WeaponStats};
@@ -130,6 +131,7 @@ pub fn fire_raygun_weapons(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     for (mut weapon, mut raygun) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -173,6 +175,10 @@ pub fn fire_raygun_weapons(
             // RayGunRay spawn et - electric particle emitter ile birlikte
             commands.spawn((
                 GameEntity,
+                NetworkIdentity {
+                    net_id: net_id_counter.next(),
+                    visual_type: VisualType::RayGunRay,
+                },
                 RayGunRay {
                     target_entity: enemy_entity,
                     damage: weapon.damage,
@@ -368,6 +374,7 @@ pub fn fire_laser_weapons(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     for (mut weapon, laser) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -394,8 +401,12 @@ pub fn fire_laser_weapons(
             &asset_server,
         );
         // Mermi spawn et
-        let projectile_entity =commands.spawn((
+        let projectile_entity = commands.spawn((
             GameEntity,
+            NetworkIdentity {
+                net_id: net_id_counter.next(),
+                visual_type: VisualType::LaserProjectile,
+            },
             Projectile {
                 direction,
                 speed: weapon.speed,
@@ -422,6 +433,7 @@ pub fn fire_rocket_weapons(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     for (mut weapon, rocket) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -450,6 +462,10 @@ pub fn fire_rocket_weapons(
         // Roket mermisi spawn et - silah entity'sindeki explosion_radius kullan
         let projectile_entity = commands.spawn((
             GameEntity,
+            NetworkIdentity {
+                net_id: net_id_counter.next(),
+                visual_type: VisualType::RocketProjectile,
+            },
             Projectile {
                 direction,
                 speed: weapon.speed,
@@ -640,6 +656,7 @@ pub fn throw_swords(
     camera: Query<(&Camera, &GlobalTransform)>,
     textures: Res<TextureAssets>,
     asset_server: Res<AssetServer>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
@@ -673,6 +690,10 @@ pub fn throw_swords(
         let projectile_entity = commands
             .spawn((
                 GameEntity,
+                NetworkIdentity {
+                    net_id: net_id_counter.next(),
+                    visual_type: VisualType::Slash,
+                },
                 SwordProjectile {
                     angle: 0.0,
                     direction,
