@@ -2,7 +2,9 @@ use crate::plugins::common::GameEntity;
 use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
-use crate::plugins::network::NetworkRole;
+use crate::plugins::network::{
+    ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingEntitySnapshots, VisualType,
+};
 use crate::plugins::player::{Player, flush_stat_snapshot};
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
@@ -10,9 +12,11 @@ use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer, PlayerHealth
 use crate::plugins::weapon_stats::spawn_weapons_for_player;
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
+use bevy::image::TextureAtlas;
 use bevy::prelude::*;
 use crate::plugins::boss::BossSpawnTracker;
 use crate::plugins::config::Config;
+use std::collections::HashSet;
 
 pub struct GamePlugin;
 
@@ -25,10 +29,13 @@ impl Plugin for GamePlugin {
             // Startup systems
             .add_systems(Startup, minimal_setup)
             // State transitions
-            .add_systems(OnEnter(GameState::Loading), cleanup_game)
+            .add_systems(
+                OnEnter(GameState::Loading),
+                (cleanup_game, clear_client_map, reset_session_resources).chain(),
+            )
             .add_systems(
                 OnEnter(GameState::GameOver),
-                (cleanup_game, show_game_over_screen).chain(),
+                (cleanup_game, clear_client_map, show_game_over_screen).chain(),
             )
             .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
             // Loading state
@@ -36,10 +43,11 @@ impl Plugin for GamePlugin {
                 Update,
                 prepare_atlases_and_spawn.run_if(in_state(GameState::Loading)),
             )
-            // Host broadcasts player stats every playing frame.
+            // Host: broadcast world state every playing frame.
+            // Client: apply incoming entity snapshots to the ghost world.
             .add_systems(
                 Update,
-                flush_stat_snapshot.run_if(in_state(GameState::Playing)),
+                (flush_stat_snapshot, client_entity_sync).run_if(in_state(GameState::Playing)),
             );
     }
 }
@@ -198,6 +206,26 @@ fn cleanup_game(
     score.score = 0;
 }
 
+/// Client tarafında ghost varlık haritasını sıfırla (restart / loading geçişinde).
+fn clear_client_map(mut client_map: ResMut<ClientEntityMap>) {
+    client_map.0.clear();
+}
+
+/// Yeni oyun oturumu için anlık kaynakları sıfırla.
+///
+/// `NetIdCounter` sıfırlanır ki host yeni entity ID'leri 1'den başlatsın.
+/// `GameTimer` sıfırlanır ki istemci saatle uyumlu başlasın.
+/// `PendingEntitySnapshots` temizlenir ki eski snapshot'lar yeni oyuna sızmasın.
+fn reset_session_resources(
+    mut net_id_counter: ResMut<NetIdCounter>,
+    mut game_timer: ResMut<GameTimer>,
+    mut pending_entity_snaps: ResMut<PendingEntitySnapshots>,
+) {
+    net_id_counter.0 = 0;
+    game_timer.elapsed_secs = 0.0;
+    pending_entity_snaps.0.clear();
+}
+
 /// GameOver ekranını göster
 fn show_game_over_screen(mut commands: Commands, locale: Res<Locale>) {
     commands.spawn((
@@ -241,3 +269,172 @@ fn restart_on_key(
     }
 }
 
+// ─────────────────────── Adım 3: Unified Client Sync System ──────────────────
+
+/// Client: apply the latest entity-snapshot list from the host to the ghost world.
+///
+/// Algorithm:
+/// 1. Despawn ghost entities whose `net_id` is no longer in the snapshot
+///    (flicker-free — entity is only removed when the host stops sending it).
+/// 2. For new `net_id`s: spawn a visuals-only ghost entity (Sprite or Mesh2d,
+///    Transform, NoAutoAabb) — **never** add physics, damage, or AI components.
+/// 3. For existing `net_id`s: update the Transform only.
+pub fn client_entity_sync(
+    mut commands: Commands,
+    role: Res<NetworkRole>,
+    mut pending: ResMut<PendingEntitySnapshots>,
+    mut client_map: ResMut<ClientEntityMap>,
+    mut ghost_transforms: Query<&mut Transform, With<GhostEntity>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    textures: Res<TextureAssets>,
+    atlases: Res<Atlases>,
+) {
+    if *role != NetworkRole::Client {
+        return;
+    }
+    if pending.0.is_empty() {
+        return;
+    }
+
+    let snapshots = std::mem::take(&mut pending.0);
+
+    // ── Step 1: collect alive IDs ─────────────────────────────────────────
+    let alive_ids: HashSet<u32> = snapshots.iter().map(|s| s.net_id).collect();
+
+    // ── Step 2: despawn ghosts not present in this frame's snapshot ───────
+    let dead: Vec<u32> = client_map
+        .0
+        .keys()
+        .filter(|&&id| !alive_ids.contains(&id))
+        .copied()
+        .collect();
+    for id in dead {
+        if let Some(entity) = client_map.0.remove(&id) {
+            commands.entity(entity).try_despawn();
+        }
+    }
+
+    // ── Step 3: update existing / spawn new ghosts ────────────────────────
+    for snap in snapshots {
+        let new_transform = snap.transform.to_transform();
+
+        if let Some(&entity) = client_map.0.get(&snap.net_id) {
+            // Entity already known — update transform only.
+            if let Ok(mut t) = ghost_transforms.get_mut(entity) {
+                *t = new_transform;
+            }
+        } else {
+            // First time seeing this net_id — spawn a visuals-only ghost.
+            let entity = spawn_ghost(
+                &mut commands,
+                snap.net_id,
+                snap.visual_type,
+                new_transform,
+                &mut meshes,
+                &mut materials,
+                &textures,
+                &atlases,
+            );
+            client_map.0.insert(snap.net_id, entity);
+        }
+    }
+}
+
+/// Spawn a ghost entity with **only** visual components.
+///
+/// Enemies receive a proper sprite sheet; projectiles and collectibles get
+/// a simple colored circle so they are visible without any game-logic coupling.
+fn spawn_ghost(
+    commands: &mut Commands,
+    net_id: u32,
+    visual_type: VisualType,
+    transform: Transform,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+    textures: &TextureAssets,
+    atlases: &Atlases,
+) -> Entity {
+    match visual_type {
+        // ── Enemies: reuse the existing sprite atlas ──────────────────────
+        VisualType::Zombie
+        | VisualType::Knight
+        | VisualType::Vampire
+        | VisualType::Robot => {
+            let texture_type = match visual_type {
+                VisualType::Zombie => TextureType::Zombie,
+                VisualType::Knight => TextureType::Knight,
+                VisualType::Vampire => TextureType::Vampire,
+                _ => TextureType::Robot,
+            };
+            if let (Some(tex), Some(layout)) = (
+                textures.textures.get(&texture_type).cloned(),
+                atlases.body.clone(),
+            ) {
+                return commands
+                    .spawn((
+                        GameEntity,
+                        GhostEntity(net_id),
+                        Sprite::from_atlas_image(
+                            tex,
+                            TextureAtlas {
+                                layout,
+                                index: 15,
+                            },
+                        ),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        NoAutoAabb,
+                    ))
+                    .id();
+            }
+            // Fallback if atlas not ready yet
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(0.6, 0.0, 0.6), 20.0, meshes, materials)
+        }
+        // ── Collectibles ──────────────────────────────────────────────────
+        VisualType::XpGem => {
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(0.8, 0.0, 0.0), 5.0, meshes, materials)
+        }
+        VisualType::Reinforcement => {
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(0.0, 0.0, 0.8), 8.0, meshes, materials)
+        }
+        // ── Weapon projectiles / effects ──────────────────────────────────
+        VisualType::LaserProjectile => {
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(0.0, 0.8, 0.0), 8.0, meshes, materials)
+        }
+        VisualType::RocketProjectile => {
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(1.0, 0.5, 0.0), 10.0, meshes, materials)
+        }
+        VisualType::Slash => {
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(1.0, 1.0, 0.0), 30.0, meshes, materials)
+        }
+        VisualType::RayGunRay => {
+            spawn_ghost_circle(commands, net_id, transform, Color::srgb(0.0, 1.0, 1.0), 8.0, meshes, materials)
+        }
+    }
+}
+
+/// Spawn a plain colored circle ghost — used for projectiles and collectibles.
+fn spawn_ghost_circle(
+    commands: &mut Commands,
+    net_id: u32,
+    transform: Transform,
+    color: Color,
+    radius: f32,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
+) -> Entity {
+    commands
+        .spawn((
+            GameEntity,
+            GhostEntity(net_id),
+            Mesh2d(meshes.add(Circle::new(radius))),
+            MeshMaterial2d(materials.add(ColorMaterial::from(color))),
+            transform,
+            GlobalTransform::default(),
+            Visibility::default(),
+            NoAutoAabb,
+        ))
+        .id()
+}

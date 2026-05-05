@@ -9,6 +9,7 @@ use crate::plugins::config::Config;
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
+use crate::plugins::network::{NetIdCounter, NetworkIdentity, VisualType};
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::GameTimer;
@@ -68,6 +69,7 @@ pub fn spawn_boss(
     atlases: Res<Atlases>,
     textures: Res<TextureAssets>,
     player_query: Query<&Transform, With<Player>>,
+    mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     if game_timer.elapsed_secs < tracker.next_boss_at_secs {
         return;
@@ -96,6 +98,10 @@ pub fn spawn_boss(
         .spawn((
             GameEntity,
             BossEnemy,
+            NetworkIdentity {
+                net_id: net_id_counter.next(),
+                visual_type: VisualType::Robot,
+            },
             Transform::from_translation(spawn_pos).with_scale(Vec3::splat(3.0)),
             Enemy {
                 health: (boss_cfg.health_multiplier * 100.0) as i32,
