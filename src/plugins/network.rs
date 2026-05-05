@@ -110,6 +110,98 @@ pub struct PlayerStat {
 pub struct StatSnapshotMsg {
     pub p1: PlayerStat,
     pub p2: PlayerStat,
+    /// Positions of every replicated game entity this frame.
+    pub entities: Vec<EntitySnapshot>,
+}
+
+// ─────────────────────────── Generic entity replication ──────────────────
+
+/// Marks a game entity that the host should replicate to connected clients.
+/// The wrapped `u32` is a stable per-session network identifier.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NetworkIdentity(pub u32);
+
+/// Monotonic counter that the host uses to hand out unique `NetworkIdentity` IDs.
+/// Only meaningful on the host / solo machine.
+#[derive(Resource, Default)]
+pub struct NetIdCounter(pub u32);
+
+impl NetIdCounter {
+    /// Advance and return the next available ID (starts at 1).
+    pub fn next(&mut self) -> u32 {
+        self.0 += 1;
+        self.0
+    }
+}
+
+/// The visual class of a replicated entity.
+///
+/// The client inspects this value to decide which sprite or mesh to render.
+/// No game logic (physics, damage, AI) is ever derived from it on the client.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VisualType {
+    // ── Enemies ──────────────────────────────────────────────────────────
+    Zombie,
+    Knight,
+    Vampire,
+    Robot,
+    // ── Collectibles ─────────────────────────────────────────────────────
+    XpGem,
+    Reinforcement,
+    // ── Weapon projectiles / effects ─────────────────────────────────────
+    LaserProjectile,
+    RocketProjectile,
+    Slash,
+    RayGunRay,
+}
+
+/// Compact transform representation safe to send over the wire.
+///
+/// Plain arrays avoid the need for any extra serde feature flags on glam/bevy.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+pub struct TransformSnapshot {
+    /// World-space translation `[x, y, z]`.
+    pub translation: [f32; 3],
+    /// Orientation as a unit quaternion `[x, y, z, w]`.
+    pub rotation: [f32; 4],
+    /// Non-uniform scale `[x, y, z]`.
+    pub scale: [f32; 3],
+}
+
+impl TransformSnapshot {
+    /// Compress a Bevy `Transform` into a `TransformSnapshot`.
+    pub fn from_transform(t: &Transform) -> Self {
+        Self {
+            translation: [t.translation.x, t.translation.y, t.translation.z],
+            rotation: [t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w],
+            scale: [t.scale.x, t.scale.y, t.scale.z],
+        }
+    }
+
+    /// Reconstruct a Bevy `Transform` from a `TransformSnapshot`.
+    pub fn to_transform(self) -> Transform {
+        Transform {
+            translation: Vec3::new(self.translation[0], self.translation[1], self.translation[2]),
+            rotation: Quat::from_xyzw(
+                self.rotation[0],
+                self.rotation[1],
+                self.rotation[2],
+                self.rotation[3],
+            ),
+            scale: Vec3::new(self.scale[0], self.scale[1], self.scale[2]),
+        }
+    }
+}
+
+/// One replicated entity's network snapshot: stable ID, visual class, and pose.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct EntitySnapshot {
+    /// Stable ID assigned by the host when the entity was spawned.
+    pub net_id: u32,
+    /// What this entity looks like — used by the client to choose a visual.
+    pub visual_type: VisualType,
+    /// Current world-space transform.
+    pub transform: TransformSnapshot,
 }
 
 // ──────────────────────────── Upgrade mode ───────────────────────────────
@@ -201,6 +293,11 @@ pub struct PendingClientUpgradeChoice(pub Option<u8>);
 #[derive(Resource, Default)]
 pub struct PendingStateChange(pub Option<NetworkedGameState>);
 
+/// The most recent entity-snapshot list received from the host.
+/// Consumed each frame by the client's unified sync system.
+#[derive(Resource, Default)]
+pub struct PendingEntitySnapshots(pub Vec<EntitySnapshot>);
+
 // ─────────────────────────── Plugin ──────────────────────────────────────
 
 pub struct NetworkPlugin;
@@ -210,7 +307,9 @@ impl Plugin for NetworkPlugin {
         app.init_resource::<NetworkRole>()
             .init_resource::<UpgradeMode>()
             .init_resource::<RemoteInput>()
+            .init_resource::<NetIdCounter>()
             .init_resource::<PendingStatSnapshot>()
+            .init_resource::<PendingEntitySnapshots>()
             .init_resource::<PendingUpgradeOptions>()
             .init_resource::<PendingUpgradeApplied>()
             .init_resource::<PendingClientUpgradeChoice>()
@@ -421,6 +520,7 @@ fn drain_inbox(
     mut remote_input: ResMut<RemoteInput>,
     mut upgrade_mode: ResMut<UpgradeMode>,
     mut pending_snap: ResMut<PendingStatSnapshot>,
+    mut pending_entity_snaps: ResMut<PendingEntitySnapshots>,
     mut pending_opts: ResMut<PendingUpgradeOptions>,
     mut pending_applied: ResMut<PendingUpgradeApplied>,
     mut pending_client_choice: ResMut<PendingClientUpgradeChoice>,
@@ -452,6 +552,8 @@ fn drain_inbox(
                             *upgrade_mode = UpgradeMode::from_u8(mode_byte);
                         }
                         S2C::StatSnapshot(snap) => {
+                            // Stash entity snapshots separately for the sync system.
+                            pending_entity_snaps.0 = snap.entities.clone();
                             pending_snap.0 = Some(snap);
                         }
                         S2C::StateChange(new_state) => {
