@@ -1,10 +1,11 @@
 use crate::plugins::common::GameEntity;
 use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
 use crate::plugins::weapons::{
-    LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon,
+    LaserWeapon, FlameWeapon, RayGunWeapon, RocketWeapon, Weapon,
 };
 use bevy::prelude::*;
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
+use crate::plugins::texture_handling::TextureAssets;
 use crate::plugins::weapon_effects::flame_config;
 #[derive(Component)]
 pub struct WeaponStats {
@@ -40,12 +41,12 @@ pub fn spawn_weapons_for_player(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
     weapon_name: &str,
-    asset_server: &AssetServer
+    texture_assets: &TextureAssets
 ) {
     println!("Spawning weapon for player!");
     match weapon_name {
         "Flame Thrower" => {
-            spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials, asset_server);
+            spawn_flame_weapon(commands, player_entity, _player_pos, meshes, materials, texture_assets);
         }
         "Laser Gun" => {
             spawn_lazer_weapon(commands, player_entity);
@@ -146,48 +147,47 @@ pub fn spawn_flame_weapon(
     _player_pos: Vec3,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
-    asset_server: &AssetServer
+    texture_assets: &TextureAssets
 ) {
     let base_range = 75.0;
     let flame_radius = 80.0;
 
-    commands.spawn((
-        GameEntity,
-        Mesh2d(meshes.add(Annulus::new(0.8, 1.0))),
-        MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(0.89, 0.35, 0.13, 0.75)))),
-        PlayerAddictedWeapon { radius: base_range },
-        Weapon {
-            fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
-            damage: 5.0,
-            owner: player_entity,
-            speed: 0.0,
-        },
-        WeaponLevel {
-            level: 1,
-            weapon_type: WeaponType::Addicted,
-        },
-        WeaponStats {
-            base_damage: 5.0,
-            base_fire_rate: 0.1,
-            base_speed: 0.0,
-            base_range: base_range,
-        },
-        // Flame particle emitter - dairesel spawn
-        ParticleEmitter {
-            enabled: true,
-            spawn_timer: Timer::from_seconds(0.03, TimerMode::Repeating),
-            particles_per_spawn: 30,
-            config: flame_config(asset_server),
-            offset: Vec3::ZERO,
-            spawn_mode: SpawnMode::Circular { radius: flame_radius },
-            lifetime: None,
-        },
-        Transform {
-            translation: _player_pos,
-            scale: Vec3::splat(base_range),
-            ..default()
-        },
-    ));
+    commands.entity(player_entity).with_children(|parent|{
+        parent.spawn((
+            Mesh2d(meshes.add(Annulus::new(0.8, 1.0))),
+            MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(0.89, 0.35, 0.13, 0.75)))),
+            FlameWeapon { radius: base_range },
+            Weapon {
+                fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+                damage: 5.0,
+                owner: player_entity,
+                speed: 0.0,
+            },
+            WeaponLevel {
+                level: 1,
+                weapon_type: WeaponType::Flame,
+            },
+            WeaponStats {
+                base_damage: 5.0,
+                base_fire_rate: 0.1,
+                base_speed: 0.0,
+                base_range: base_range,
+            },
+            // Flame particle emitter - dairesel spawn
+            ParticleEmitter {
+                enabled: true,
+                spawn_timer: Timer::from_seconds(0.03, TimerMode::Repeating),
+                particles_per_spawn: 30,
+                config: flame_config(texture_assets),
+                offset: Vec3::ZERO,
+                spawn_mode: SpawnMode::Circular { radius: flame_radius },
+                lifetime: None,
+            },
+            Transform::default(),
+            GlobalTransform::default(),
+        ));
+    });
+
 }
 
 #[derive(Component)]

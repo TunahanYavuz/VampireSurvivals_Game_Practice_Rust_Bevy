@@ -18,7 +18,7 @@ use bevy::{
     },
     prelude::*,
 };
-
+use bevy::ecs::relationship::RelatedSpawnerCommands;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
@@ -254,7 +254,7 @@ fn setup_lobby(mut commands: Commands, asset_server: Res<AssetServer>, locale: R
 }
 
 fn spawn_lobby_btn(
-    parent: &mut ChildSpawner,
+    parent: &mut RelatedSpawnerCommands<ChildOf>,
     label: &str,
     btn_type: LobbyButton,
     font: &Handle<Font>,
@@ -268,10 +268,10 @@ fn spawn_lobby_btn(
                 height: Val::Px(54.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(6.0)),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.22, 0.22, 0.3)),
-            BorderRadius::all(Val::Px(6.0)),
         ))
         .with_children(|btn| {
             btn.spawn((
@@ -370,7 +370,7 @@ fn handle_lobby_buttons(
 
 fn update_ip_text_input(
     mut lobby: ResMut<LobbyData>,
-    mut key_events: EventReader<KeyboardInput>,
+    mut key_events: MessageReader<KeyboardInput>,
     role: Res<NetworkRole>,
     mut ip_text: Query<&mut Text, With<IpInputText>>,
 ) {

@@ -11,7 +11,7 @@ use crate::plugins::weapon_stats::{
     spawn_rocket_weapon, spawn_throwing_weapon,
 };
 use crate::plugins::weapons::{
-    LaserWeapon, PlayerAddictedWeapon, RayGunWeapon, RocketWeapon, Weapon,
+    LaserWeapon, FlameWeapon, RayGunWeapon, RocketWeapon, Weapon,
 };
 use bevy::prelude::*;
 use bevy::ui::Val::Auto;
@@ -19,6 +19,7 @@ use rand::prelude::IndexedRandom;
 use rand::rng;
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use serde::{Deserialize, Serialize};
+use crate::plugins::texture_handling::TextureAssets;
 
 pub struct UpgradePlugin;
 
@@ -57,7 +58,7 @@ pub enum WeaponType {
     Laser,
     Rocket,
     RayGun,
-    Addicted,
+    Flame,
     Sword,
 }
 
@@ -68,7 +69,7 @@ impl WeaponType {
             WeaponType::Laser => 0,
             WeaponType::Rocket => 1,
             WeaponType::RayGun => 2,
-            WeaponType::Addicted => 3,
+            WeaponType::Flame => 3,
             WeaponType::Sword => 4,
         }
     }
@@ -79,7 +80,7 @@ impl WeaponType {
             0 => Some(WeaponType::Laser),
             1 => Some(WeaponType::Rocket),
             2 => Some(WeaponType::RayGun),
-            3 => Some(WeaponType::Addicted),
+            3 => Some(WeaponType::Flame),
             4 => Some(WeaponType::Sword),
             _ => None,
         }
@@ -140,7 +141,7 @@ impl UpgradeChoices {
                 icon: None,
             },
             UpgradeOption {
-                weapon_type: WeaponType::Addicted,
+                weapon_type: WeaponType::Flame,
                 name: locale.t("upgrade_flame").to_string(),
                 description: locale.t("upgrade_flame_desc").to_string(),
                 icon: None,
@@ -324,7 +325,7 @@ pub fn apply_weapon_upgrade(
         &WeaponStats,
         Option<&mut LaserWeapon>,
         Option<&mut RocketWeapon>,
-        Option<(&mut PlayerAddictedWeapon, &mut ParticleEmitter)>,
+        Option<(&mut FlameWeapon, &mut ParticleEmitter)>,
         Option<&mut RayGunWeapon>,
         Option<&mut SwordWeapon>,
     )>,
@@ -334,7 +335,7 @@ pub fn apply_weapon_upgrade(
     player_q: Query<(Entity, &Transform, &Player), With<Player>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
+    texture_assets: Res<TextureAssets>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
     upgrade_mode: Res<UpgradeMode>,
@@ -371,13 +372,13 @@ pub fn apply_weapon_upgrade(
                     WeaponType::Laser => spawn_lazer_weapon(&mut commands, *player_entity),
                     WeaponType::Rocket => spawn_rocket_weapon(&mut commands, *player_entity),
                     WeaponType::RayGun => spawn_raygun_weapon(&mut commands, *player_entity),
-                    WeaponType::Addicted => spawn_flame_weapon(
+                    WeaponType::Flame => spawn_flame_weapon(
                         &mut commands,
                         *player_entity,
                         *player_pos,
                         &mut meshes,
                         &mut materials,
-                        &asset_server,
+                        &texture_assets,
                     ),
                     WeaponType::Sword => spawn_throwing_weapon(&mut commands, *player_entity),
                 }
@@ -415,7 +416,7 @@ pub fn apply_weapon_upgrade(
                             rocket_weapon.explosion_radius = stats.calculate_range(new_level);
                         }
                     }
-                    WeaponType::Addicted => {
+                    WeaponType::Flame => {
                         if let Some((mut addicted_weapon, mut emitter)) = addicted {
                             addicted_weapon.radius = stats.calculate_range(new_level);
                             if let SpawnMode::Circular { ref mut radius } = emitter.spawn_mode {
@@ -471,7 +472,7 @@ pub fn handle_upgrade_input(
             // Client: in Mode A (P2's upgrade), send the choice to the host
             // instead of applying locally.  The host will broadcast UpgradeApplied.
             if *role == NetworkRole::Client {
-                if let (Some(ref outbox), Some(1)) = (&outbox, upgrade_choices.for_player) {
+                if let (Some( outbox), Some(1)) = (&outbox, upgrade_choices.for_player) {
                     use crate::plugins::network::C2S;
                     if let Ok(frame) =
                         encode(&C2S::UpgradeChosen(upgrade_button.0.to_u8()))
@@ -627,7 +628,7 @@ fn upgrade_option_name(wt: WeaponType, locale: &Locale) -> &str {
     match wt {
         WeaponType::Laser => locale.t("upgrade_laser"),
         WeaponType::Rocket => locale.t("upgrade_rocket"),
-        WeaponType::Addicted => locale.t("upgrade_flame"),
+        WeaponType::Flame => locale.t("upgrade_flame"),
         WeaponType::RayGun => locale.t("upgrade_raygun"),
         WeaponType::Sword => locale.t("upgrade_sword"),
     }
@@ -637,7 +638,7 @@ fn upgrade_option_desc(wt: WeaponType, locale: &Locale) -> &str {
     match wt {
         WeaponType::Laser => locale.t("upgrade_laser_desc"),
         WeaponType::Rocket => locale.t("upgrade_rocket_desc"),
-        WeaponType::Addicted => locale.t("upgrade_flame_desc"),
+        WeaponType::Flame => locale.t("upgrade_flame_desc"),
         WeaponType::RayGun => locale.t("upgrade_raygun_desc"),
         WeaponType::Sword => locale.t("upgrade_sword_desc"),
     }

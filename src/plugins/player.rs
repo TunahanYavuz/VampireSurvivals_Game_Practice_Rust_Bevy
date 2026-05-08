@@ -178,7 +178,7 @@ pub fn move_player(
         }
 
         // Determine which input source to use for this player:
-        // • Solo: keyboard for both players (original behaviour)
+        // • Solo: keyboard for both players (original behavior)
         // • Host: keyboard for P1; RemoteInput (from client) for P2
         // • Client: keyboard for P2 only; P1 position arrives via stat snapshot
         let (left, right, up, down) = match *role {
@@ -328,11 +328,21 @@ fn send_client_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
+    window: Single<&Window>,
+    camera: Query<(&Camera, &GlobalTransform)>,
 ) {
     if *role != NetworkRole::Client {
         return;
     }
     let Some(outbox) = outbox else { return };
+
+    let mut mouse_world_pos = None;
+    if let Ok((cam, cam_transform)) = camera.single() {
+        mouse_world_pos = window
+            .cursor_position()
+            .and_then(|pos| cam.viewport_to_world_2d(cam_transform, pos).ok())
+            .map(|v| [v.x, v.y]);
+    }
 
     let input = crate::plugins::network::InputState {
         left: keyboard.pressed(KeyCode::ArrowLeft),
@@ -340,6 +350,7 @@ fn send_client_input(
         up: keyboard.pressed(KeyCode::ArrowUp),
         down: keyboard.pressed(KeyCode::ArrowDown),
         collect_magnet: keyboard.just_pressed(KeyCode::KeyC),
+        mouse_world_pos,
     };
     if let Ok(frame) = encode(&C2S::PlayerInput(input)) {
         let _ = outbox.0.send(frame);

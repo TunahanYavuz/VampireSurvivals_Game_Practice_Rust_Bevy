@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::plugins::common::GameEntity;
 use crate::plugins::game_state::GameState;
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
 
 pub struct ParticlePlugin;
 
@@ -59,6 +60,7 @@ pub enum SpawnMode {
         start_point: Vec3,
         end_point: Vec3,
     },
+    Box { size: Vec2 },
 }
 
 #[derive(Component)]
@@ -159,7 +161,7 @@ pub fn update_particles(
 pub fn update_particle_emitters(
     mut commands: Commands,
     time: Res<Time>,
-    asset_server: Res<AssetServer>,
+    texture_assets: Res<TextureAssets>,
     mut emitters: Query<(Entity, &mut ParticleEmitter, &Transform)>
 ) {
     for (entity, mut emitter, transform) in emitters.iter_mut() {
@@ -175,11 +177,11 @@ pub fn update_particle_emitters(
                     // Normal spawn - tek noktada
                     let spawn_position = transform.translation + emitter.offset;
                     for _ in 0..emitter.particles_per_spawn {
-                        spawn_particles(&mut commands, &asset_server, spawn_position, &emitter.config);
+                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }
                 SpawnMode::Circular { radius } => {
-                    // Dairesel spawn - çember üzerinde
+                    // Dairesel spawn - cember uzerinde
                     let angle_step = std::f32::consts::TAU / emitter.particles_per_spawn as f32;
                     for i in 0..emitter.particles_per_spawn {
                         let angle = angle_step * i as f32;
@@ -189,15 +191,25 @@ pub fn update_particle_emitters(
                             0.0
                         );
                         let spawn_position = transform.translation + offset + emitter.offset;
-                        spawn_particles(&mut commands, &asset_server, spawn_position, &emitter.config);
+                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }
                 SpawnMode::Linear { start_point, end_point } => {
-                    // Linear spawn - çizgi boyunca
+                    // Linear spawn - cizgi boyunca
                     for _ in 0..emitter.particles_per_spawn {
                         let t = rand_range(0.0, 1.0);
                         let spawn_position = transform.translation + start_point.lerp(*end_point, t);
-                        spawn_particles(&mut commands, &asset_server, spawn_position, &emitter.config);
+                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
+                    }
+                }
+                SpawnMode::Box { size } => {
+                    for _ in 0..emitter.particles_per_spawn {
+                        let x = rand_range(-size.x/2.0, size.x/2.0 );
+                        let y = rand_range(-size.y/2.0, size.y/2.0 );
+
+                        let local_pos = Vec3::new(x, y, 0.0) + emitter.offset;
+                        let spawn_position = transform.transform_point(local_pos);
+                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }
             }
@@ -214,7 +226,7 @@ pub fn update_particle_emitters(
 
 pub fn spawn_particles(
     commands: &mut Commands,
-    asset_server: &AssetServer,
+    texture_assets: &TextureAssets,
     position: Vec3,
     config: &ParticleConfig,
 ){
@@ -234,8 +246,8 @@ pub fn spawn_particles(
         Vec3::ZERO
     };
     
-    let texture = config.texture.clone().unwrap_or_else(|| asset_server.load("effects/particle.png"));
-    
+    let texture = config.texture.clone().unwrap_or_else(|| texture_assets.textures.get(&TextureType::Particle).unwrap().clone());
+
     commands.spawn((
         GameEntity,
         Particle{

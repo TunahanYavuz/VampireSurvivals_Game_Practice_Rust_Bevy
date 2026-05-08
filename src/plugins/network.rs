@@ -33,7 +33,7 @@ use std::{
     thread,
     time::Duration,
 };
-
+use bevy::ecs::schedule::graph::Direction;
 use crate::plugins::game_state::GameState;
 
 /// TCP port the host listens on.
@@ -65,6 +65,18 @@ pub enum S2C {
     UpgradeApplied { weapon_type: u8, for_player: u8 },
     /// The upgrade mode chosen in the lobby (0 = Shared, 1 = Independent).
     UpgradeMode(u8),
+    // Silah efektleri client a giden
+    WeaponFxSpawned {
+        visual_type: VisualType,
+        transform: TransformSnapshot,
+        owner_net_id: Option<u32>,
+    },
+    // Oyuncu silahı seviye atlamaları
+    WeaponStateChanged {
+        net_id: u32,
+        visual_type: VisualType,
+        owner_net_id: u32,
+    },
 }
 
 /// A compact representation of `GameState` that can be sent over the network.
@@ -94,6 +106,7 @@ pub struct InputState {
     pub up: bool,
     pub down: bool,
     pub collect_magnet: bool,
+    pub mouse_world_pos: Option<[f32; 2]>,
 }
 
 /// Per-player stat data packed into every snapshot frame.
@@ -128,7 +141,7 @@ pub struct StatSnapshotMsg {
 ///
 /// Carries both the stable per-session network identifier **and** the visual
 /// class the client needs in order to decide which sprite / mesh to draw.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct NetworkIdentity {
     /// Monotonically increasing ID assigned by the host at spawn time.
     pub net_id: u32,
@@ -149,11 +162,17 @@ impl NetIdCounter {
     }
 }
 
+// drain_inbox içine S2C::WeaponFxSpawned ve S2C::WeaponStateChanged geldiğinde bu listeye pushlayın.#[derive(Resource, Default)]
+#[derive(Resource, Default)]
+pub struct PendingWeaponFxEvents(pub Vec<S2C>);
+#[derive(Resource, Default)]
+pub struct PendingWeaponStateEvents(pub Vec<S2C>);
+
 /// The visual class of a replicated entity.
 ///
 /// The client inspects this value to decide which sprite or mesh to render.
 /// No game logic (physics, damage, AI) is ever derived from it on the client.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum VisualType {
     // ── Enemies ──────────────────────────────────────────────────────────
     Zombie,
@@ -162,12 +181,19 @@ pub enum VisualType {
     Robot,
     // ── Collectibles ─────────────────────────────────────────────────────
     XpGem,
-    Reinforcement,
+    HealthPack,
+    AtomBomb,
+    Magnet,
     // ── Weapon projectiles / effects ─────────────────────────────────────
     LaserProjectile,
     RocketProjectile,
-    Slash,
+    SwordWeapon,
     RayGunRay,
+    FlameAura,
+    // ── VFX (Event based)
+    MuzzleFlash {direction: Vec3},
+    Explosion {radius: f32},
+    Trail,
 }
 
 /// Compact transform representation safe to send over the wire.
@@ -346,6 +372,8 @@ impl Plugin for NetworkPlugin {
             .init_resource::<PendingUpgradeApplied>()
             .init_resource::<PendingClientUpgradeChoice>()
             .init_resource::<PendingStateChange>()
+            .init_resource::<PendingWeaponStateEvents>()
+            .init_resource::<PendingWeaponFxEvents>()
             .add_systems(
                 Update,
                 (
@@ -557,6 +585,8 @@ fn drain_inbox(
     mut pending_applied: ResMut<PendingUpgradeApplied>,
     mut pending_client_choice: ResMut<PendingClientUpgradeChoice>,
     mut pending_state: ResMut<PendingStateChange>,
+    mut pending_weapon_fx_events: ResMut<PendingWeaponFxEvents>,
+    mut pending_weapon_state_events: ResMut<PendingWeaponStateEvents>,
 ) {
     let Some(inbox) = inbox else {
         return;
@@ -599,6 +629,28 @@ fn drain_inbox(
                             for_player,
                         } => {
                             pending_applied.0 = Some((weapon_type, for_player));
+                        }
+                        S2C::WeaponFxSpawned {
+                            visual_type,
+                            transform,
+                            owner_net_id,
+                        } => {
+                            pending_weapon_fx_events.0.push(S2C::WeaponFxSpawned {
+                                visual_type,
+                                transform,
+                                owner_net_id,
+                            });
+                        }
+                        S2C::WeaponStateChanged {
+                            net_id,
+                            visual_type,
+                            owner_net_id,
+                        } => {
+                            pending_weapon_state_events.0.push(S2C::WeaponStateChanged {
+                                net_id,
+                                visual_type,
+                                owner_net_id,
+                            })
                         }
                     }
                 }
