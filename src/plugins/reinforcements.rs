@@ -9,6 +9,7 @@ use crate::plugins::enemy::{Collectible, Enemy, XP};
 use crate::plugins::game_state::GameState;
 use crate::plugins::network::{NetIdCounter, NetworkIdentity, VisualType};
 use crate::plugins::player::{Player, XPMagnetite};
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::weapon_upgrade::LevelUpEvent;
 
 pub struct ReinforcementsPlugin;
@@ -26,7 +27,7 @@ impl Plugin for ReinforcementsPlugin {
 pub enum ReinforcementType {
     Magnet,
     HealthPack,
-    KillEnemies,
+    AtomBomb,
 
 }
 
@@ -40,9 +41,8 @@ pub fn spawn_reinforcement(
     commands: &mut Commands,
     position: Vec3,
     amount: i32,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
     net_id_counter: &mut NetIdCounter,
+    textures: &Res<TextureAssets>,
 ) {
     commands.spawn((
         Collectible,
@@ -58,18 +58,24 @@ pub fn spawn_reinforcement(
         NoAutoAabb,
         NoFrustumCulling,
         Transform::from_translation(position),
-        Mesh2d(meshes.add(Circle::new(5.0))),
-        MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(0.8, 0.0, 0.0)))),
+        Sprite::from_image(textures.textures.get(&TextureType::XPGem).unwrap().clone()),
     ));
 
     if rand::rng().random_range(0..100) < 2 {
         let index = rand::rng().random_range(0..ReinforcementType::COUNT);
 
         if let Some(reinforcement_type) = ReinforcementType::from_repr(index) {
-            let color = match reinforcement_type {
-                ReinforcementType::Magnet => Color::srgb(0.0, 0.0, 0.8),
-                ReinforcementType::HealthPack => Color::srgb(0.0, 0.8, 0.0),
-                ReinforcementType::KillEnemies => Color::srgb(0.8, 0.8, 0.8),
+            let v_type;
+            let sprite = match reinforcement_type {
+                ReinforcementType::Magnet => {
+                    v_type = VisualType::Magnet;
+                    Sprite::from_image(textures.textures.get(&TextureType::Magnet).unwrap().clone()) },
+                ReinforcementType::HealthPack => {
+                    v_type = VisualType::HealthPack;
+                    Sprite::from_image(textures.textures.get(&TextureType::HealthPack).unwrap().clone()) },
+                ReinforcementType::AtomBomb => {
+                    v_type = VisualType::AtomBomb;
+                    Sprite::from_image(textures.textures.get(&TextureType::AtomBomb).unwrap().clone()) },
             };
 
             let offset_position = position + Vec3::new(30.0, 0.0, 0.0);
@@ -82,14 +88,13 @@ pub fn spawn_reinforcement(
                 },
                 NetworkIdentity {
                     net_id: net_id_counter.next(),
-                    visual_type: VisualType::Reinforcement,
+                    visual_type: v_type,
                 },
                 Aabb {
                     center: offset_position.to_vec3a(),
                     half_extents: Vec3A::new(40.0, 40.0, 1.0),
                 },
-                Mesh2d(meshes.add(Circle::new(8.0))),
-                MeshMaterial2d(materials.add(ColorMaterial::from(color))),
+                sprite,
                 NoAutoAabb,
                 NoFrustumCulling,
                 Transform::from_translation(offset_position),
@@ -151,7 +156,7 @@ pub fn apply_reinforcements(
                             player.health = (player.health + 20).min(player.max_health);
                         }
                     }
-                    ReinforcementType::KillEnemies => {
+                    ReinforcementType::AtomBomb => {
                         for mut enemy in enemies.iter_mut() {
                             enemy.should_despawn = true;
                             enemy.drops_loot = false;

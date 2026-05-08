@@ -1,6 +1,8 @@
-use crate::plugins::game_state::GameState;
-use bevy::prelude::*;
 use std::collections::HashSet;
+use bevy::prelude::*;
+use crate::plugins::game_state::GameState;
+use crate::plugins::player::Player;
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
 
 pub struct GroundPlugin;
 
@@ -43,9 +45,9 @@ impl Default for GroundSystem {
     }
 }
 
-/// Zemin sistemini başlat - texture'ı yükle
-pub fn setup_ground(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let tile_texture = asset_server.load("textures/rpg/tiles/generic-rpg-tile01.png");
+/// Zemin sistemini baslat - texture'u yukle
+pub fn setup_ground(mut commands: Commands, texture_assets: Res<TextureAssets>) {
+    let tile_texture = texture_assets.textures.get(&TextureType::GroundTile).unwrap().clone();
 
     commands.insert_resource(GroundSystem {
         tile_texture,

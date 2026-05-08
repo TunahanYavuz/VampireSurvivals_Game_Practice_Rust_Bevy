@@ -106,8 +106,7 @@ fn despawn_enemies(
     mut commands: Commands,
     mut enemy_query: Query<(Entity, &mut Enemy, &Transform), With<Enemy>>,
     mut score: ResMut<GameScore>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    textures: Res<TextureAssets>,
     audio: Res<GameAudio>,
     mut net_id_counter: ResMut<NetIdCounter>,
 ) {
@@ -130,9 +129,8 @@ fn despawn_enemies(
                 &mut commands,
                 transform.translation,
                 enemy.xp_drop,
-                &mut meshes,
-                &mut materials,
                 &mut net_id_counter,
+                &textures,
             );
         }
 
