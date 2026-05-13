@@ -33,7 +33,6 @@ use std::{
     thread,
     time::Duration,
 };
-use bevy::ecs::schedule::graph::Direction;
 use crate::plugins::game_state::GameState;
 
 /// TCP port the host listens on.
@@ -109,7 +108,6 @@ pub struct InputState {
     pub mouse_world_pos: Option<[f32; 2]>,
 }
 
-/// Per-player stat data packed into every snapshot frame.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PlayerStat {
     pub health: u32,
@@ -537,7 +535,7 @@ fn poll_pending_connection(
     upgrade_mode: Res<UpgradeMode>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    let Some(mut pending) = pending else {
+    let Some(pending) = pending else {
         return;
     };
     if !pending.ready.load(Ordering::Acquire) {

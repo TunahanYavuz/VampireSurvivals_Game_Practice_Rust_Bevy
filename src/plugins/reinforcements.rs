@@ -10,7 +10,7 @@ use crate::plugins::game_state::GameState;
 use crate::plugins::network::{NetIdCounter, NetworkIdentity, VisualType};
 use crate::plugins::player::{Player, XPMagnetite};
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use crate::plugins::weapon_upgrade::LevelUpEvent;
+use crate::plugins::weapons::LevelUpEvent;
 
 pub struct ReinforcementsPlugin;
 impl Plugin for ReinforcementsPlugin {

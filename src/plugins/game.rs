@@ -7,7 +7,10 @@ use crate::plugins::player::{Player, flush_stat_snapshot};
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer, PlayerHealthReduceTimer};
-use crate::plugins::weapon_stats::{spawn_flame_weapon, spawn_weapons_for_player};
+use crate::plugins::weapons::{
+    attach_trail_effect, raygun_spark_config, spawn_explosion_effect,
+    spawn_muzzle_flash, spawn_weapons_for_player, WeaponType,
+};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::image::TextureAtlas;
@@ -16,8 +19,6 @@ use crate::plugins::boss::BossSpawnTracker;
 use crate::plugins::config::Config;
 use std::collections::HashSet;
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
-use crate::plugins::weapon_effects::{attach_trail_effect, raygun_spark_config, spawn_explosion_effect, spawn_muzzle_flash};
-use crate::plugins::weapon_upgrade::WeaponType;
 
 pub struct GamePlugin;
 
@@ -57,15 +58,15 @@ pub fn handle_client_weapon_fx(
     mut commands: Commands,
     role: Res<NetworkRole>,
     mut fx_events: ResMut<PendingWeaponFxEvents>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    _meshes: ResMut<Assets<Mesh>>,
+    _materials: ResMut<Assets<ColorMaterial>>,
     texture_assets: Res<TextureAssets>,
 ){
     if *role != NetworkRole::Client {return;}
 
     for event in fx_events.0.drain(..) {
         if let S2C::WeaponFxSpawned { visual_type, transform, .. } = event {
-            let t = transform.to_transform();
+            let _t = transform.to_transform();
             match visual_type {
                 VisualType::LaserProjectile => {}
                 VisualType::RocketProjectile => {}
@@ -95,7 +96,7 @@ pub fn handle_client_weapon_state(
 
     for event in state_events.0.drain(..) {
         // Hangi oyuncu için silah spawn edilecek bul
-        if let S2C::WeaponStateChanged { net_id,visual_type, owner_net_id} = event {
+        if let S2C::WeaponStateChanged { net_id: _,visual_type, owner_net_id} = event {
             let target_player_entity = player_query.iter().find_map(|(e, p)| {
                 if p.player_index as u32  == owner_net_id{ Some(e) } else { None }
             });
@@ -356,12 +357,13 @@ pub fn client_entity_sync(
     role: Res<NetworkRole>,
     mut pending: ResMut<PendingEntitySnapshots>,
     mut client_map: ResMut<ClientEntityMap>,
-    mut ghost_transforms: Query<&mut Transform, With<GhostEntity>>,
+    mut ghost_transforms: Query<(&mut Transform, Option<&mut Sprite>), With<GhostEntity>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     textures: Res<TextureAssets>,
     atlases: Res<Atlases>,
     texture_assets: Res<TextureAssets>,
+    move_timer: Res<MoveTimer>
 ) {
     if *role != NetworkRole::Client {
         return;
@@ -391,13 +393,26 @@ pub fn client_entity_sync(
     // ── Step 3: update existing / spawn new ghosts ────────────────────────
     for snap in snapshots {
         let new_transform = snap.transform.to_transform();
-
         if let Some(&entity) = client_map.0.get(&snap.net_id) {
-            // Entity already known — update transform only.
-            if let Ok(mut t) = ghost_transforms.get_mut(entity) {
+            if let Ok((mut t, opt_sprite)) = ghost_transforms.get_mut(entity) {
+                let diff = new_transform.translation - t.translation;
+                if diff.length_squared() > 1e-6 && move_timer.timer.just_finished() {
+                    if let Some(mut sprite) = opt_sprite {
+                        if let Some(ref mut atlas ) = sprite.texture_atlas {
+                            let direction = diff.normalize();
+                            let i = (atlas.index + 1) % 9;
+                            atlas.index = if direction.x.abs() > direction.y.abs() {
+                                if direction.x > 0.0 { 27 + i } else { 9 + i }
+                            } else {
+                                if direction.y > 0.0 { 0 + i } else { 18 + i }
+                            };
+                        }
+                    }
+                }
                 *t = new_transform;
             }
-        } else {
+        }
+         else {
             // First time seeing this net_id — spawn a visuals-only ghost.
             let entity = spawn_ghost(
                 &mut commands,

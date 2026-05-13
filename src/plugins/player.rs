@@ -9,7 +9,7 @@ use crate::plugins::network::{
     encode,
 };
 use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer, GameTimer};
-use crate::plugins::weapon_upgrade::LevelUpEvent;
+use crate::plugins::weapons::LevelUpEvent;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
 use bevy::image::TextureAtlas;
@@ -365,8 +365,9 @@ fn send_client_input(
 fn apply_stat_snapshot(
     role: Res<NetworkRole>,
     mut pending: ResMut<PendingStatSnapshot>,
-    mut players: Query<(&mut Player, &mut Transform, &mut Aabb)>,
+    mut players: Query<(&mut Player, &mut Transform, &mut Aabb, &mut Sprite)>,
     mut game_timer: ResMut<GameTimer>,
+    move_timer: Res<MoveTimer>,
 ) {
     if *role != NetworkRole::Client {
         return;
@@ -378,7 +379,7 @@ fn apply_stat_snapshot(
     // Sync the game clock.
     game_timer.elapsed_secs = snap.game_elapsed_secs;
 
-    for (mut player, mut transform, mut aabb) in players.iter_mut() {
+    for (mut player, mut transform, mut aabb, mut sprite) in players.iter_mut() {
         let (stat, pos): (&PlayerStat, [f32; 2]) = if player.player_index == 0 {
             (&snap.p1, snap.p1_pos)
         } else {
@@ -396,8 +397,20 @@ fn apply_stat_snapshot(
         // P2's position is handled locally on the client, but we sync it too
         // for consistency — the server's position is always the truth.
         if pos != [0.0_f32, 0.0_f32] {
-            transform.translation.x = pos[0];
-            transform.translation.y = pos[1];
+            let new_pos = Vec3::new(pos[0], pos[1], transform.translation.z);
+            let diff = new_pos - transform.translation;
+            if diff.length_squared() > 1e-6 && move_timer.timer.just_finished() {
+                if let Some(ref mut atlas) = sprite.texture_atlas {
+                    let direction = diff.normalize();
+                    let i = (atlas.index + 1) % 9;
+                    atlas.index = if direction.x.abs() > direction.y.abs() {
+                        if direction.x > 0.0 { 27 + i } else { 9 + i }
+                    } else {
+                        if direction.y > 0.0 { 0 + i } else { 18 + i }
+                    };
+                }
+            }
+            transform.translation = new_pos;
             aabb.center = transform.translation.to_vec3a();
         }
     }
@@ -462,4 +475,3 @@ pub fn flush_stat_snapshot(
         let _ = outbox.0.send(frame);
     }
 }
-
