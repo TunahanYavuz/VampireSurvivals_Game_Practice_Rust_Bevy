@@ -9,7 +9,7 @@ impl Plugin for TimerPlugin {
         app.init_resource::<MoveTimer>()
             .init_resource::<PlayerHealthReduceTimer>()
             .init_resource::<GameTimer>()
-            .add_systems(Update, tick_game_timer.run_if(in_state(GameState::Playing)));
+            .add_systems(Update, (tick_game_timer, tick_move_timer).run_if(in_state(GameState::Playing)));
     }
 }
 
@@ -31,6 +31,13 @@ fn tick_game_timer(
         return;
     }
     game_timer.elapsed_secs += time.delta_secs();
+}
+
+fn tick_move_timer(
+    time: Res<Time>,
+    mut move_timer: ResMut<MoveTimer>,
+){
+    move_timer.timer.tick(time.delta());
 }
 
 #[derive(Resource)]

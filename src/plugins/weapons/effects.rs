@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::plugins::common::GameEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::particle_effects::{spawn_particles, ParticleConfig, ParticleEmitter, SpawnMode};
-use crate::plugins::weapon_upgrade::WeaponType;
+use super::upgrades::WeaponType;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 
 pub struct WeaponEffectPlugin;

@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use bevy::prelude::*;
 use crate::plugins::game_state::GameState;
-use crate::plugins::player::Player;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 
 pub struct GroundPlugin;

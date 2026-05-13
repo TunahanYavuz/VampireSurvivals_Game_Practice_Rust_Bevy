@@ -1,12 +1,10 @@
 use crate::plugins::common::GameEntity;
-use crate::plugins::weapon_upgrade::{WeaponLevel, WeaponType};
-use crate::plugins::weapons::{
-    LaserWeapon, FlameWeapon, RayGunWeapon, RocketWeapon, Weapon,
-};
+use super::upgrades::{WeaponLevel, WeaponType};
+use super::core::{FlameWeapon, LaserWeapon, RayGunWeapon, RocketWeapon, Weapon};
 use bevy::prelude::*;
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use crate::plugins::texture_handling::TextureAssets;
-use crate::plugins::weapon_effects::flame_config;
+use super::effects::flame_config;
 #[derive(Component)]
 pub struct WeaponStats {
     pub base_damage: f32,

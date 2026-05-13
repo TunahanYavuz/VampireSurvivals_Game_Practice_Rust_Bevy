@@ -149,10 +149,9 @@ pub fn follow(
         (With<Enemy>, Without<Player>),
     >,
     time: Res<Time>,
-    mut enemy_move_timer: ResMut<MoveTimer>,
+    enemy_move_timer: ResMut<MoveTimer>,
     mut enemy_sprit_query: Query<(&mut Sprite, &mut EnemySprit), With<EnemySprit>>,
 ) {
-    enemy_move_timer.timer.tick(time.delta());
     for (mut enemy_position, enemy, mut aabb, children) in enemy_query.iter_mut() {
         // Target the nearest alive player.
         let Some(target_pos) = player_query
@@ -268,7 +267,7 @@ pub fn spawn_enemies(
                 None => (0, 1.0, 1.0, 1.0),
             };
 
-            let enemy_type_index = enemy_type_index.min(enemies.len().saturating_sub(1));
+            let enemy_type_index: usize = enemy_type_index.min(enemies.len().saturating_sub(1));
             let base = &enemies[enemy_type_index];
 
             let base_health = base.health;
@@ -363,14 +362,14 @@ pub fn apply_stage_to_existing_enemies(
         None => return,
     };
 
-    let enemy_type_index = enemy_type_index.min(enemies_cfg.len().saturating_sub(1));
+    let enemy_type_index: usize = enemy_type_index.min(enemies_cfg.len().saturating_sub(1));
     let base_cfg = &enemies_cfg[enemy_type_index];
 
     for mut enemy in enemy_query.iter_mut() {
         // Recalculate from stored base values using new multipliers
-        let new_max_health = (enemy.base_health as f32 * health_mul).round() as i32;
-        let new_speed = enemy.base_speed * speed_mul;
-        let new_damage = (enemy.base_damage as f32 * damage_mul).round() as i32;
+        let new_max_health: i32 = (enemy.base_health as f32 * health_mul).round() as i32;
+        let new_speed: f32 = enemy.base_speed * speed_mul;
+        let new_damage: i32 = (enemy.base_damage as f32 * damage_mul).round() as i32;
 
         // Scale current health proportionally
         let health_ratio = if enemy.health > 0 && new_max_health > 0 {

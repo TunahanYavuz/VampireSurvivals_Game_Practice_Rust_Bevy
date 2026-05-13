@@ -138,7 +138,7 @@ pub fn spawn_boss(
 }
 
 /// Show a warning banner ~15 s before the boss arrives, hide after 3 s.
-pub fn show_boss_warning(
+fn show_boss_warning(
     mut commands: Commands,
     game_timer: Res<GameTimer>,
     mut tracker: ResMut<BossSpawnTracker>,

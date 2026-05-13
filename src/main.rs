@@ -15,9 +15,7 @@ use crate::plugins::reinforcements::ReinforcementsPlugin;
 use crate::plugins::score::ScorePlugin;
 use crate::plugins::settings::SettingsPlugin;
 use crate::plugins::timers::TimerPlugin;
-use crate::plugins::weapon_effects::WeaponEffectPlugin;
-use crate::plugins::weapon_upgrade::UpgradePlugin;
-use crate::plugins::weapons::WeaponPlugin;
+use crate::plugins::weapons::{UpgradePlugin, WeaponEffectPlugin, WeaponPlugin};
 
 mod plugins;
 
@@ -50,4 +48,3 @@ fn main() {
 
         .run();
 }
-

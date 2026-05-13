@@ -1,17 +1,20 @@
 use crate::plugins::common::{GameEntity, aabb_intersects, contains_point};
 use crate::plugins::enemy::Enemy;
 use crate::plugins::game_state::GameState;
-use crate::plugins::network::{encode, NetIdCounter, NetInbox, NetOutbox, NetworkIdentity, NetworkRole, RemoteInput, TransformSnapshot, VisualType, C2S, S2C};
+use crate::plugins::network::{encode, NetIdCounter, NetOutbox, NetworkIdentity, NetworkRole, RemoteInput, TransformSnapshot, VisualType, S2C};
 use crate::plugins::player::Player;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use crate::plugins::weapon_stats::{Throwable, WeaponStats};
+use super::stats::{Throwable, WeaponStats};
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoFrustumCulling};
 use bevy::prelude::*;
 use bevy::tasks::futures_lite::StreamExt;
-use crate::plugins::weapon_effects::{attach_trail_effect, spawn_explosion_effect, spawn_impact_effects, spawn_muzzle_flash, raygun_spark_config};
-use crate::plugins::weapon_upgrade::WeaponType;
+use super::effects::{
+    attach_trail_effect, raygun_spark_config, spawn_explosion_effect, spawn_impact_effects,
+    spawn_muzzle_flash,
+};
+use super::upgrades::WeaponType;
 
 pub struct WeaponPlugin;
 
@@ -533,7 +536,7 @@ pub fn move_projectiles(
     outbox: Option<Res<NetOutbox>>,
 ) {
     for (proj_entity, mut proj_transform, projectile) in projectiles.iter_mut() {
-        // Hareketi uygula
+        // Hareketı uygula
         proj_transform.translation += projectile.direction * projectile.speed * time.delta_secs();
 
         // Düşman çarpışma kontrolü
