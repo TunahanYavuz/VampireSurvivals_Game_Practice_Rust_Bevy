@@ -12,7 +12,14 @@ impl Plugin for MainMenuPlugin {
                 Update,
                 (handle_menu_buttons, button_hover_effect).run_if(in_state(GameState::MainMenu)),
             )
-            .add_systems(Update, button_hover_effect.run_if(in_state(GameState::MainMenu).or(in_state(GameState::Settings).or(in_state(GameState::HostUpgrade).or(in_state(GameState::RemoteUpgrade))))))
+            .add_systems(
+                Update,
+                button_hover_effect.run_if(in_state(GameState::MainMenu).or(
+                    in_state(GameState::Settings).or(
+                        in_state(GameState::HostUpgrade).or(in_state(GameState::RemoteUpgrade)),
+                    ),
+                )),
+            )
             .add_systems(OnExit(GameState::MainMenu), cleanup_menu);
     }
 }
@@ -56,9 +63,24 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>, local
                     ..default()
                 },
             ));
-            spawn_button(parent, locale.t("menu_play"), MenuButton::Play, font.clone());
-            spawn_button(parent, locale.t("menu_settings"), MenuButton::Settings, font.clone());
-            spawn_button(parent, locale.t("menu_quit"), MenuButton::Quit, font.clone());
+            spawn_button(
+                parent,
+                locale.t("menu_play"),
+                MenuButton::Play,
+                font.clone(),
+            );
+            spawn_button(
+                parent,
+                locale.t("menu_settings"),
+                MenuButton::Settings,
+                font.clone(),
+            );
+            spawn_button(
+                parent,
+                locale.t("menu_quit"),
+                MenuButton::Quit,
+                font.clone(),
+            );
         });
 }
 

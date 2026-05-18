@@ -1,9 +1,11 @@
-use bevy::prelude::*;
+use super::upgrades::WeaponType;
 use crate::plugins::common::GameEntity;
 use crate::plugins::game_state::GameState;
-use crate::plugins::particle_effects::{spawn_particles, ParticleConfig, ParticleEmitter, SpawnMode};
-use super::upgrades::WeaponType;
+use crate::plugins::particle_effects::{
+    ParticleConfig, ParticleEmitter, SpawnMode, spawn_particles,
+};
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
+use bevy::prelude::*;
 
 pub struct WeaponEffectPlugin;
 
@@ -15,7 +17,8 @@ impl Plugin for WeaponEffectPlugin {
                 update_trail_effects,
                 update_impact_effects,
                 update_muzzle_flash,
-                ).run_if(in_state(GameState::Playing))
+            )
+                .run_if(in_state(GameState::Playing)),
         );
     }
 }
@@ -23,7 +26,7 @@ impl Plugin for WeaponEffectPlugin {
 #[derive(Component)]
 pub struct TrailEffect {
     pub spawn_timer: Timer,
-    pub config: ParticleConfig
+    pub config: ParticleConfig,
 }
 
 #[derive(Component)]
@@ -37,10 +40,15 @@ pub struct MuzzleFlash {
     pub lifetime: Timer,
 }
 
-pub fn laser_trail_config(
-    texture_assets: &TextureAssets )-> ParticleConfig {
+pub fn laser_trail_config(texture_assets: &TextureAssets) -> ParticleConfig {
     ParticleConfig {
-        texture: Some(texture_assets.textures.get(&TextureType::Spark).unwrap().clone()),
+        texture: Some(
+            texture_assets
+                .textures
+                .get(&TextureType::Spark)
+                .unwrap()
+                .clone(),
+        ),
         particle_lifetime: 0.3,
         velocity_min: Vec2::new(-20.0, -20.0),
         velocity_max: Vec2::new(20.0, 20.0),
@@ -57,9 +65,15 @@ pub fn laser_trail_config(
     }
 }
 
-pub fn rocket_trail_config(texture_assets: &TextureAssets ) -> ParticleConfig {
+pub fn rocket_trail_config(texture_assets: &TextureAssets) -> ParticleConfig {
     ParticleConfig {
-        texture: Some(texture_assets.textures.get(&TextureType::Smoke).unwrap().clone()),
+        texture: Some(
+            texture_assets
+                .textures
+                .get(&TextureType::Smoke)
+                .unwrap()
+                .clone(),
+        ),
         particle_lifetime: 0.8,
         velocity_min: Vec2::new(-30.0, -30.0),
         velocity_max: Vec2::new(30.0, 30.0),
@@ -78,7 +92,13 @@ pub fn rocket_trail_config(texture_assets: &TextureAssets ) -> ParticleConfig {
 
 pub fn flame_config(texture_assets: &TextureAssets) -> ParticleConfig {
     ParticleConfig {
-        texture: Some(texture_assets.textures.get(&TextureType::Flame).unwrap().clone()),
+        texture: Some(
+            texture_assets
+                .textures
+                .get(&TextureType::Flame)
+                .unwrap()
+                .clone(),
+        ),
         particle_lifetime: 0.4,
         velocity_min: Vec2::new(-80.0, -80.0),
         velocity_max: Vec2::new(80.0, 80.0),
@@ -97,7 +117,13 @@ pub fn flame_config(texture_assets: &TextureAssets) -> ParticleConfig {
 
 pub fn raygun_spark_config(texture_assets: &TextureAssets) -> ParticleConfig {
     ParticleConfig {
-        texture: Some(texture_assets.textures.get(&TextureType::Electric).unwrap().clone()),
+        texture: Some(
+            texture_assets
+                .textures
+                .get(&TextureType::Electric)
+                .unwrap()
+                .clone(),
+        ),
         particle_lifetime: 0.2,
         velocity_min: Vec2::new(-50.0, -50.0),
         velocity_max: Vec2::new(50.0, 50.0),
@@ -116,7 +142,13 @@ pub fn raygun_spark_config(texture_assets: &TextureAssets) -> ParticleConfig {
 
 pub fn sword_sparkle_config(texture_assets: &TextureAssets) -> ParticleConfig {
     ParticleConfig {
-        texture: Some(texture_assets.textures.get(&TextureType::Sparkle).unwrap().clone()),
+        texture: Some(
+            texture_assets
+                .textures
+                .get(&TextureType::Sparkle)
+                .unwrap()
+                .clone(),
+        ),
         particle_lifetime: 0.5,
         velocity_min: Vec2::new(-40.0, -40.0),
         velocity_max: Vec2::new(40.0, 40.0),
@@ -137,8 +169,8 @@ pub fn attach_trail_effect(
     commands: &mut Commands,
     projectile_entity: Entity,
     weapon_type: WeaponType,
-    texture_assets: &TextureAssets
-){
+    texture_assets: &TextureAssets,
+) {
     let config = match weapon_type {
         WeaponType::Laser => laser_trail_config(texture_assets),
         WeaponType::Rocket => rocket_trail_config(texture_assets),
@@ -158,47 +190,52 @@ pub fn spawn_explosion_effect(
     position: Vec3,
     radius: f32,
     texture_assets: &TextureAssets,
-){
+) {
     let mut config = rocket_trail_config(texture_assets);
     config.spawn_radius = radius * 0.5;
 
-
     commands.spawn((
         GameEntity,
-        ParticleEmitter{
+        ParticleEmitter {
             enabled: true,
             spawn_timer: Timer::from_seconds(0.01, TimerMode::Repeating),
-            particles_per_spawn: (radius * 2.0 ) as u32,
+            particles_per_spawn: (radius * 2.0) as u32,
             config,
             offset: Vec3::ZERO,
-            spawn_mode: SpawnMode::Circular {radius: radius - 15.0},
+            spawn_mode: SpawnMode::Circular {
+                radius: radius - 15.0,
+            },
             lifetime: Some(Timer::from_seconds(0.15, TimerMode::Once)),
         },
-        Transform::from_translation(position)
-        ));
+        Transform::from_translation(position),
+    ));
 
     commands.spawn((
         GameEntity,
-        ImpactEffect{
+        ImpactEffect {
             radius,
-            lifetime: Timer::from_seconds(0.3, TimerMode::Once)
+            lifetime: Timer::from_seconds(0.3, TimerMode::Once),
         },
-        Sprite{
-            image: texture_assets.textures.get(&TextureType::ExplosionCore).unwrap().clone(),
+        Sprite {
+            image: texture_assets
+                .textures
+                .get(&TextureType::ExplosionCore)
+                .unwrap()
+                .clone(),
             color: Color::srgba(1.0, 0.9, 0.5, 1.0),
             ..default()
         },
         Transform::from_translation(position + Vec3::Z * 20.0)
-            .with_scale(Vec3::splat(radius * 0.1))
-        ));
+            .with_scale(Vec3::splat(radius * 0.1)),
+    ));
 }
 
 pub fn spawn_impact_effects(
     commands: &mut Commands,
     position: Vec3,
     weapon_type: WeaponType,
-    texture_assets: &TextureAssets
-){
+    texture_assets: &TextureAssets,
+) {
     let config = match weapon_type {
         WeaponType::Laser => {
             let mut c = laser_trail_config(texture_assets);
@@ -206,7 +243,7 @@ pub fn spawn_impact_effects(
             c.velocity_max = Vec2::new(80.0, 80.0);
             c
         }
-        WeaponType::RayGun => {raygun_spark_config(texture_assets)},
+        WeaponType::RayGun => raygun_spark_config(texture_assets),
         WeaponType::Sword => {
             let mut c = sword_sparkle_config(texture_assets);
             c.velocity_min = Vec2::new(-100.0, -100.0);
@@ -221,12 +258,11 @@ pub fn spawn_impact_effects(
     }
 }
 
-
 pub fn spawn_muzzle_flash(
     commands: &mut Commands,
     position: Vec3,
     direction: Vec3,
-    texture_assets: &TextureAssets
+    texture_assets: &TextureAssets,
 ) {
     let angle = direction.y.atan2(direction.x);
 
@@ -236,27 +272,36 @@ pub fn spawn_muzzle_flash(
             lifetime: Timer::from_seconds(0.01, TimerMode::Once),
         },
         Sprite {
-            image: texture_assets.textures.get(&TextureType::MuzzleFlash).unwrap().clone(),
+            image: texture_assets
+                .textures
+                .get(&TextureType::MuzzleFlash)
+                .unwrap()
+                .clone(),
             color: Color::srgba(1.0, 0.9, 0.5, 1.0),
             ..default()
         },
         Transform::from_translation(position + Vec3::Z * 12.0)
             .with_rotation(Quat::from_rotation_z(angle))
             .with_scale(Vec3::new(0.5, 0.3, 1.0)),
-        ));
+    ));
 }
 
 pub fn update_trail_effects(
     mut commands: Commands,
     time: Res<Time>,
     texture_assets: Res<TextureAssets>,
-    mut trails: Query<(&mut TrailEffect, &Transform)>
-){
+    mut trails: Query<(&mut TrailEffect, &Transform)>,
+) {
     for (mut trail, transform) in trails.iter_mut() {
         trail.spawn_timer.tick(time.delta());
 
         if trail.spawn_timer.just_finished() {
-            spawn_particles(&mut commands, &texture_assets, transform.translation, &trail.config);
+            spawn_particles(
+                &mut commands,
+                &texture_assets,
+                transform.translation,
+                &trail.config,
+            );
         }
     }
 }
@@ -264,8 +309,8 @@ pub fn update_trail_effects(
 pub fn update_impact_effects(
     mut commands: Commands,
     time: Res<Time>,
-    mut effects: Query<(Entity, &mut ImpactEffect, &mut Transform, &mut Sprite)>
-){
+    mut effects: Query<(Entity, &mut ImpactEffect, &mut Transform, &mut Sprite)>,
+) {
     for (entity, mut effect, mut transform, mut sprite) in effects.iter_mut() {
         effect.lifetime.tick(time.delta());
         let progress = effect.lifetime.fraction();
@@ -282,8 +327,8 @@ pub fn update_impact_effects(
 pub fn update_muzzle_flash(
     mut commands: Commands,
     time: Res<Time>,
-    mut flashes: Query<(Entity, &mut MuzzleFlash, &mut Sprite)>
-){
+    mut flashes: Query<(Entity, &mut MuzzleFlash, &mut Sprite)>,
+) {
     for (entity, mut flash, mut sprite) in flashes.iter_mut() {
         flash.lifetime.tick(time.delta());
 

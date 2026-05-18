@@ -1,4 +1,3 @@
-use bevy::prelude::*;
 use crate::plugins::audio::GameAudioPlugin;
 use crate::plugins::boss::BossPlugin;
 use crate::plugins::config::ConfigPlugin;
@@ -16,6 +15,7 @@ use crate::plugins::score::ScorePlugin;
 use crate::plugins::settings::SettingsPlugin;
 use crate::plugins::timers::TimerPlugin;
 use crate::plugins::weapons::{UpgradePlugin, WeaponEffectPlugin, WeaponPlugin};
+use bevy::prelude::*;
 
 mod plugins;
 
@@ -23,28 +23,23 @@ fn main() {
     App::new()
         // Oyun Plugin'leri
         .add_plugins((
-                ConfigPlugin,
-                NetworkPlugin,
-                GamePlugin,
-                ReinforcementsPlugin,
-                PlayerPlugin,
-                EnemyPlugin,
-                BossPlugin,
-                WeaponPlugin,
-                ParticlePlugin,
-                WeaponEffectPlugin,
-                UpgradePlugin,
-                ScorePlugin,
-                GroundPlugin,
-                GameAudioPlugin,
-                TimerPlugin,
+            ConfigPlugin,
+            NetworkPlugin,
+            GamePlugin,
+            ReinforcementsPlugin,
+            PlayerPlugin,
+            EnemyPlugin,
+            BossPlugin,
+            WeaponPlugin,
+            ParticlePlugin,
+            WeaponEffectPlugin,
+            UpgradePlugin,
+            ScorePlugin,
+            GroundPlugin,
+            GameAudioPlugin,
+            TimerPlugin,
         ))
-        .add_plugins((
-            MainMenuPlugin,
-                      LobbyPlugin,
-                      SettingsPlugin,
-        ))
+        .add_plugins((MainMenuPlugin, LobbyPlugin, SettingsPlugin))
         .init_state::<GameState>()
-
         .run();
 }

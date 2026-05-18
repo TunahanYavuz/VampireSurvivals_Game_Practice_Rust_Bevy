@@ -11,18 +11,16 @@
 //! For **Solo** play the lobby can be bypassed: the "Solo" button transitions
 //! directly to `GameState::Loading` without setting up any networking.
 
-use bevy::{
-    input::{
-        keyboard::{Key, KeyboardInput},
-        ButtonState,
-    },
-    prelude::*,
-};
-use bevy::ecs::relationship::RelatedSpawnerCommands;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
-use crate::plugins::network::{
-    start_client, start_host, NetworkRole, UpgradeMode,
+use crate::plugins::network::{NetworkRole, UpgradeMode, start_client, start_host};
+use bevy::ecs::relationship::RelatedSpawnerCommands;
+use bevy::{
+    input::{
+        ButtonState,
+        keyboard::{Key, KeyboardInput},
+    },
+    prelude::*,
 };
 
 pub struct LobbyPlugin;
@@ -139,7 +137,12 @@ fn setup_lobby(mut commands: Commands, asset_server: Res<AssetServer>, locale: R
             .with_children(|row| {
                 spawn_lobby_btn(row, locale.t("lobby_solo"), LobbyButton::Solo, &font);
                 spawn_lobby_btn(row, locale.t("lobby_host"), LobbyButton::BecomeHost, &font);
-                spawn_lobby_btn(row, locale.t("lobby_client"), LobbyButton::BecomeClient, &font);
+                spawn_lobby_btn(
+                    row,
+                    locale.t("lobby_client"),
+                    LobbyButton::BecomeClient,
+                    &font,
+                );
             });
 
             // ── Host panel (hidden until role = Host) ──
@@ -192,7 +195,12 @@ fn setup_lobby(mut commands: Commands, asset_server: Res<AssetServer>, locale: R
                         );
                     });
                 let _ = mode_row; // suppress unused warning
-                spawn_lobby_btn(panel, locale.t("lobby_start_hosting"), LobbyButton::StartHosting, &font);
+                spawn_lobby_btn(
+                    panel,
+                    locale.t("lobby_start_hosting"),
+                    LobbyButton::StartHosting,
+                    &font,
+                );
             });
 
             // ── Client panel (hidden until role = Client) ──
@@ -229,7 +237,12 @@ fn setup_lobby(mut commands: Commands, asset_server: Res<AssetServer>, locale: R
                         color: Color::srgba(0.2, 0.9, 0.4, 0.6),
                     },
                 ));
-                spawn_lobby_btn(panel, locale.t("lobby_connect"), LobbyButton::Connect, &font);
+                spawn_lobby_btn(
+                    panel,
+                    locale.t("lobby_connect"),
+                    LobbyButton::Connect,
+                    &font,
+                );
             });
 
             // ── Status line ──
@@ -415,10 +428,7 @@ fn update_ip_text_input(
 
 // ─────────────────────────── Status text ─────────────────────────────────
 
-fn update_status_text(
-    lobby: Res<LobbyData>,
-    mut query: Query<&mut Text, With<StatusText>>,
-) {
+fn update_status_text(lobby: Res<LobbyData>, mut query: Query<&mut Text, With<StatusText>>) {
     for mut text in query.iter_mut() {
         text.0 = lobby.status.clone();
     }
@@ -427,7 +437,10 @@ fn update_status_text(
 // ─────────────────────────── Hover effect ────────────────────────────────
 
 fn button_hover(
-    mut query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<LobbyButton>)>,
+    mut query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<LobbyButton>),
+    >,
 ) {
     for (interaction, mut color) in query.iter_mut() {
         match interaction {

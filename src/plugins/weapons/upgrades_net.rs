@@ -3,14 +3,17 @@
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
-    NetworkRole, PendingClientUpgradeChoice, PendingUpgradeApplied, PendingUpgradeOptions, UpgradeMode,
+    NetworkRole, PendingClientUpgradeChoice, PendingUpgradeApplied, PendingUpgradeOptions,
+    UpgradeMode,
 };
 use bevy::prelude::*;
 
-use super::upgrade_screen::{populate_upgrade_table, populate_upgrade_table_entity, spawn_upgrade_table_ui};
+use super::upgrade_screen::{
+    populate_upgrade_table, populate_upgrade_table_entity, spawn_upgrade_table_ui,
+};
 use super::upgrades::{
-    upgrade_option_desc, upgrade_option_name, UpgradeChoices, UpgradeOption, UpgradeSelectedEvent,
-    WeaponType, WeaponTable,
+    UpgradeChoices, UpgradeOption, UpgradeSelectedEvent, WeaponTable, WeaponType,
+    upgrade_option_desc, upgrade_option_name,
 };
 
 // ─────────────────────────── Network Receive ────────────────────────────
@@ -60,7 +63,13 @@ pub fn receive_net_upgrade_options(
 
     if table.iter().next().is_none() {
         let table_entity = spawn_upgrade_table_ui(&mut commands);
-        populate_upgrade_table_entity(&mut commands, table_entity, &asset_server, &locale, &options);
+        populate_upgrade_table_entity(
+            &mut commands,
+            table_entity,
+            &asset_server,
+            &locale,
+            &options,
+        );
         return;
     }
 

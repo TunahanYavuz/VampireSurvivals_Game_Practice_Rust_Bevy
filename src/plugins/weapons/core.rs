@@ -1,20 +1,23 @@
-use crate::plugins::common::{GameEntity, aabb_intersects, contains_point};
-use crate::plugins::enemy::Enemy;
-use crate::plugins::game_state::GameState;
-use crate::plugins::network::{encode, NetIdCounter, NetOutbox, NetworkIdentity, NetworkRole, RemoteInput, TransformSnapshot, VisualType, S2C};
-use crate::plugins::player::Player;
-use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use super::stats::{Throwable, WeaponStats};
-use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
-use bevy::camera::primitives::Aabb;
-use bevy::camera::visibility::{NoFrustumCulling};
-use bevy::prelude::*;
-use crate::plugins::audio::{AudioType, PlayAudioEvent};
 use super::effects::{
     attach_trail_effect, raygun_spark_config, spawn_explosion_effect, spawn_impact_effects,
     spawn_muzzle_flash,
 };
-use super::upgrades::WeaponType;
+use super::stats::{Throwable, WeaponStats};
+use super::upgrades::{WeaponLevel, WeaponType};
+use crate::plugins::audio::{AudioType, PlayAudioEvent};
+use crate::plugins::common::{GameEntity, aabb_intersects, contains_point};
+use crate::plugins::enemy::Enemy;
+use crate::plugins::game_state::GameState;
+use crate::plugins::network::{
+    NetIdCounter, NetOutbox, NetworkIdentity, NetworkRole, RemoteInput, S2C, TransformSnapshot,
+    VisualType, encode,
+};
+use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
+use crate::plugins::player::Player;
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
+use bevy::camera::primitives::Aabb;
+use bevy::camera::visibility::NoFrustumCulling;
+use bevy::prelude::*;
 
 pub struct WeaponPlugin;
 
@@ -163,7 +166,7 @@ pub fn fire_raygun_weapons(
     mut net_id_counter: ResMut<NetIdCounter>,
     _role: Res<NetworkRole>,
     mut audio_events: MessageWriter<PlayAudioEvent>,
-    _outbox: Option<ResMut<NetOutbox>>
+    _outbox: Option<ResMut<NetOutbox>>,
 ) {
     let mut played: bool = false;
     for (mut weapon, mut raygun) in weapons.iter_mut() {
@@ -241,14 +244,14 @@ pub fn fire_raygun_weapons(
                 },
             ));
             if !played {
-                audio_events.write(PlayAudioEvent { audio_type: AudioType::RaygunRayFire });
+                audio_events.write(PlayAudioEvent {
+                    audio_type: AudioType::RaygunRayFire,
+                });
                 played = true;
             }
         }
-
     }
 }
-
 
 pub fn update_raygun_rays(
     mut raygun_q: Query<
@@ -268,12 +271,12 @@ pub fn update_raygun_rays(
             let direction = enemy_transform.translation - player_transform.translation;
             let distance = direction.length();
             let angle = direction.y.atan2(direction.x);
-            ray_transform.translation = (player_transform.translation + direction / 2.0).with_z(1.0);
+            ray_transform.translation =
+                (player_transform.translation + direction / 2.0).with_z(1.0);
             ray_transform.rotation = Quat::from_rotation_z(angle);
             ray_transform.scale = Vec3::new(distance, 5.0, 1.0);
         }
     }
-
 }
 
 pub fn raygun_damage(
@@ -298,7 +301,8 @@ pub fn raygun_damage(
         }
 
         // Düşman hâlâ var mı kontrol et
-        let Ok((enemy_entity, mut enemy, enemy_transform)) = enemies.get_mut(raygun.target_entity) else {
+        let Ok((enemy_entity, mut enemy, enemy_transform)) = enemies.get_mut(raygun.target_entity)
+        else {
             // Düşman yok, ray'i sil
             commands.entity(raygun_entity).despawn();
             continue;
@@ -318,10 +322,14 @@ pub fn raygun_damage(
                 // Impact efekti için Trail veya yeni bir Impact visual_type yollayabilirsin
                 let event = S2C::WeaponFxSpawned {
                     visual_type: VisualType::Trail, // Eger Trail impact anlamına geliyorsa
-                    transform: TransformSnapshot::from_transform(&Transform::from_translation(transform.translation)),
+                    transform: TransformSnapshot::from_transform(&Transform::from_translation(
+                        transform.translation,
+                    )),
                     owner_net_id: None,
                 };
-                if let Ok(bytes) = encode(&event) { let _ = outbox.0.send(bytes); }
+                if let Ok(bytes) = encode(&event) {
+                    let _ = outbox.0.send(bytes);
+                }
             }
         }
 
@@ -329,7 +337,6 @@ pub fn raygun_damage(
             dead_enemies.push(enemy_entity);
         }
     }
-
 
     // İkinci geçiş: ölen düşmanların raylerini temizle
     if !dead_enemies.is_empty() {
@@ -352,7 +359,7 @@ pub fn raygun_damage(
 pub fn fire_laser_weapons(
     mut commands: Commands,
     time: Res<Time>,
-    mut weapons: Query<(&mut Weapon, &LaserWeapon), With<LaserWeapon>>,
+    mut weapons: Query<(&mut Weapon, &LaserWeapon, &WeaponLevel, &WeaponStats), With<LaserWeapon>>,
     players: Query<&Transform, With<Player>>,
     enemies: Query<&Transform, With<Enemy>>,
     texture_assets: Res<TextureAssets>,
@@ -361,7 +368,7 @@ pub fn fire_laser_weapons(
     mut audio_events: MessageWriter<PlayAudioEvent>,
     outbox: Option<Res<NetOutbox>>,
 ) {
-    for (mut weapon, laser) in weapons.iter_mut() {
+    for (mut weapon, laser, level, stats) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
 
         if !weapon.fire_timer.just_finished() {
@@ -390,10 +397,10 @@ pub fn fire_laser_weapons(
         if *role == NetworkRole::Host {
             if let Some(ref outbox) = outbox {
                 let event = S2C::WeaponFxSpawned {
-                    visual_type: VisualType::MuzzleFlash {
-                        direction,
-                    },
-                    transform: TransformSnapshot::from_transform(&Transform::from_translation(player_transform.translation)),
+                    visual_type: VisualType::MuzzleFlash { direction },
+                    transform: TransformSnapshot::from_transform(&Transform::from_translation(
+                        player_transform.translation,
+                    )),
                     owner_net_id: None,
                 };
                 if let Ok(bytes) = encode(&event) {
@@ -402,27 +409,50 @@ pub fn fire_laser_weapons(
             }
         }
 
-        // Mermi spawn et
-        let projectile_entity = commands.spawn((
-            GameEntity,
-            NetworkIdentity {
-                net_id: net_id_counter.next(),
-                visual_type: VisualType::LaserProjectile,
-            },
-            Projectile {
-                direction,
-                speed: weapon.speed,
-                damage: weapon.damage,
-                kind: ProjectileKind::Laser { color: laser.color },
-            },
-            Lifetime::new(3.0, TimerMode::Once),
-            Sprite::from_image(texture_assets.textures.get(&TextureType::Laser).unwrap().clone()),
-            Transform::from_translation(player_transform.translation + Vec3::new(0.0, 0.0, 10.0))
-                .with_rotation(Quat::from_rotation_z(angle)),
-            GlobalTransform::default(),
-        )).id();
-        attach_trail_effect(&mut commands, projectile_entity, WeaponType::Laser, &texture_assets);
-        audio_events.write(PlayAudioEvent { audio_type: AudioType::LaserProjectileFire });
+        let projectile_count = stats.projectile_count(level.level).max(1);
+        let spread = 0.16_f32;
+        for i in 0..projectile_count {
+            let centered = i as f32 - (projectile_count as f32 - 1.0) * 0.5;
+            let shot_angle = angle + centered * spread;
+            let shot_dir = Vec3::new(shot_angle.cos(), shot_angle.sin(), 0.0).normalize();
+            let projectile_entity = commands
+                .spawn((
+                    GameEntity,
+                    NetworkIdentity {
+                        net_id: net_id_counter.next(),
+                        visual_type: VisualType::LaserProjectile,
+                    },
+                    Projectile {
+                        direction: shot_dir,
+                        speed: weapon.speed,
+                        damage: weapon.damage,
+                        kind: ProjectileKind::Laser { color: laser.color },
+                    },
+                    Lifetime::new(3.0, TimerMode::Once),
+                    Sprite::from_image(
+                        texture_assets
+                            .textures
+                            .get(&TextureType::Laser)
+                            .unwrap()
+                            .clone(),
+                    ),
+                    Transform::from_translation(
+                        player_transform.translation + Vec3::new(0.0, 0.0, 10.0),
+                    )
+                    .with_rotation(Quat::from_rotation_z(shot_angle)),
+                    GlobalTransform::default(),
+                ))
+                .id();
+            attach_trail_effect(
+                &mut commands,
+                projectile_entity,
+                WeaponType::Laser,
+                &texture_assets,
+            );
+        }
+        audio_events.write(PlayAudioEvent {
+            audio_type: AudioType::LaserProjectileFire,
+        });
     }
 }
 
@@ -430,7 +460,10 @@ pub fn fire_laser_weapons(
 pub fn fire_rocket_weapons(
     mut commands: Commands,
     time: Res<Time>,
-    mut weapons: Query<(&mut Weapon, &mut RocketWeapon), With<RocketWeapon>>,
+    mut weapons: Query<
+        (&mut Weapon, &mut RocketWeapon, &WeaponLevel, &WeaponStats),
+        With<RocketWeapon>,
+    >,
     players: Query<&Transform, With<Player>>,
     enemies: Query<&Transform, With<Enemy>>,
     texture_assets: Res<TextureAssets>,
@@ -439,7 +472,7 @@ pub fn fire_rocket_weapons(
     mut audio_events: MessageWriter<PlayAudioEvent>,
     outbox: Option<Res<NetOutbox>>,
 ) {
-    for (mut weapon, mut rocket) in weapons.iter_mut() {
+    for (mut weapon, mut rocket, level, stats) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
 
         if !weapon.fire_timer.just_finished() {
@@ -468,7 +501,9 @@ pub fn fire_rocket_weapons(
                     visual_type: VisualType::MuzzleFlash {
                         direction: direction,
                     },
-                    transform: TransformSnapshot::from_transform(&Transform::from_translation(player_transform.translation)),
+                    transform: TransformSnapshot::from_transform(&Transform::from_translation(
+                        player_transform.translation,
+                    )),
                     owner_net_id: None,
                 };
                 if let Ok(bytes) = encode(&event) {
@@ -477,30 +512,53 @@ pub fn fire_rocket_weapons(
             }
         }
 
-        // Roket mermisi spawn et - silah entity'sindeki explosion_radius kullan
-        let projectile_entity = commands.spawn((
-            GameEntity,
-            NetworkIdentity {
-                net_id: net_id_counter.next(),
-                visual_type: VisualType::RocketProjectile,
-            },
-            Projectile {
-                direction,
-                speed: weapon.speed,
-                damage: weapon.damage,
-                kind: ProjectileKind::Rocket {
-                    explosion_radius: rocket.explosion_radius,
-                },
-            },
-            Lifetime::new(5.0, TimerMode::Once),
-            Sprite::from_image(texture_assets.textures.get(&TextureType::Rocket).unwrap().clone()),
-            Transform::from_translation(player_transform.translation + Vec3::new(0.0, 0.0, 10.0))
-                .with_rotation(Quat::from_rotation_z(angle)),
-            GlobalTransform::default(),
-        )).id();
+        let projectile_count = stats.projectile_count(level.level).max(1);
+        let spread = 0.22_f32;
+        for i in 0..projectile_count {
+            let centered = i as f32 - (projectile_count as f32 - 1.0) * 0.5;
+            let shot_angle = angle + centered * spread;
+            let shot_dir = Vec3::new(shot_angle.cos(), shot_angle.sin(), 0.0).normalize();
+            let projectile_entity = commands
+                .spawn((
+                    GameEntity,
+                    NetworkIdentity {
+                        net_id: net_id_counter.next(),
+                        visual_type: VisualType::RocketProjectile,
+                    },
+                    Projectile {
+                        direction: shot_dir,
+                        speed: weapon.speed,
+                        damage: weapon.damage,
+                        kind: ProjectileKind::Rocket {
+                            explosion_radius: rocket.explosion_radius,
+                        },
+                    },
+                    Lifetime::new(5.0, TimerMode::Once),
+                    Sprite::from_image(
+                        texture_assets
+                            .textures
+                            .get(&TextureType::Rocket)
+                            .unwrap()
+                            .clone(),
+                    ),
+                    Transform::from_translation(
+                        player_transform.translation + Vec3::new(0.0, 0.0, 10.0),
+                    )
+                    .with_rotation(Quat::from_rotation_z(shot_angle)),
+                    GlobalTransform::default(),
+                ))
+                .id();
+            attach_trail_effect(
+                &mut commands,
+                projectile_entity,
+                WeaponType::Rocket,
+                &texture_assets,
+            );
+        }
         rocket.angle_index += 1;
-        attach_trail_effect(&mut commands, projectile_entity, WeaponType::Rocket, &texture_assets);
-        audio_events.write(PlayAudioEvent { audio_type: AudioType::RocketProjectileFire });
+        audio_events.write(PlayAudioEvent {
+            audio_type: AudioType::RocketProjectileFire,
+        });
     }
 }
 
@@ -575,13 +633,16 @@ pub fn move_projectiles(
                                 // Impact efekti için Trail veya yeni bir Impact visual_type yollayabilirsin
                                 let event = S2C::WeaponFxSpawned {
                                     visual_type: VisualType::Trail, // Eger Trail impact anlamına geliyorsa
-                                    transform: TransformSnapshot::from_transform(&Transform::from_translation(proj_transform.translation)),
+                                    transform: TransformSnapshot::from_transform(
+                                        &Transform::from_translation(proj_transform.translation),
+                                    ),
                                     owner_net_id: None,
                                 };
-                                if let Ok(bytes) = encode(&event) { let _ = outbox.0.send(bytes); }
+                                if let Ok(bytes) = encode(&event) {
+                                    let _ = outbox.0.send(bytes);
+                                }
                             }
                         }
-
 
                         // Mermi yok et
                         commands.entity(proj_entity).try_despawn();
@@ -618,7 +679,9 @@ pub fn move_projectiles(
                                 visual_type: VisualType::Explosion {
                                     radius: *explosion_radius,
                                 },
-                                transform: TransformSnapshot::from_transform(&Transform::from_translation(explosion_center)),
+                                transform: TransformSnapshot::from_transform(
+                                    &Transform::from_translation(explosion_center),
+                                ),
                                 owner_net_id: None,
                             };
                             if let Ok(bytes) = encode(&event) {
@@ -694,7 +757,6 @@ pub fn throw_swords(
         .cursor_position()
         .and_then(|pos| camera.viewport_to_world_2d(camera_transform, pos).ok());
 
-
     for (mut sword_comp, mut weapon) in sword.iter_mut() {
         weapon.fire_timer.tick(time.delta());
         if !weapon.fire_timer.just_finished() {
@@ -706,16 +768,20 @@ pub fn throw_swords(
             continue;
         };
 
-
-        let direction = if let Some(r_mwp) = r_input.0.mouse_world_pos && p.player_index == 1  {
-            (Vec2::new(r_mwp[0], r_mwp[1]) - player_transform.translation.xy()).normalize().extend(0.0)
-        } else {
-            if let Some(world_pos) = cursor_world_pos && p.player_index == 0  {
-            (world_pos - player_transform.translation.xy())
+        let direction = if let Some(r_mwp) = r_input.0.mouse_world_pos
+            && p.player_index == 1
+        {
+            (Vec2::new(r_mwp[0], r_mwp[1]) - player_transform.translation.xy())
                 .normalize()
                 .extend(0.0)
-            }
-            else {
+        } else {
+            if let Some(world_pos) = cursor_world_pos
+                && p.player_index == 0
+            {
+                (world_pos - player_transform.translation.xy())
+                    .normalize()
+                    .extend(0.0)
+            } else {
                 sword_comp.last_direction
             }
         };
@@ -743,7 +809,11 @@ pub fn throw_swords(
                 },
                 NoFrustumCulling,
                 Sprite {
-                    image: texture_assets.textures.get(&TextureType::Sword).unwrap().clone(),
+                    image: texture_assets
+                        .textures
+                        .get(&TextureType::Sword)
+                        .unwrap()
+                        .clone(),
                     ..default()
                 },
                 Transform::from_translation(player_transform.translation),
@@ -755,7 +825,9 @@ pub fn throw_swords(
             WeaponType::Sword,
             &texture_assets,
         );
-        audio_events.write(PlayAudioEvent { audio_type: AudioType::SwordProjectileFire });
+        audio_events.write(PlayAudioEvent {
+            audio_type: AudioType::SwordProjectileFire,
+        });
     }
 }
 
@@ -766,7 +838,10 @@ pub fn move_swords(
         (Entity, &mut Transform, &mut SwordProjectile, &mut Aabb),
         (With<SwordProjectile>, Without<Enemy>),
     >,
-    mut enemies: Query<(Entity, &mut Enemy, &mut Aabb, &mut Transform), (With<Enemy>, Without<SwordProjectile>)>,
+    mut enemies: Query<
+        (Entity, &mut Enemy, &mut Aabb, &mut Transform),
+        (With<Enemy>, Without<SwordProjectile>),
+    >,
     texture_assets: Res<TextureAssets>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
@@ -800,16 +875,22 @@ pub fn move_swords(
                     WeaponType::Sword,
                     &texture_assets,
                 );
-                audio_events.write(PlayAudioEvent { audio_type: AudioType::SwordProjectileImpact });
+                audio_events.write(PlayAudioEvent {
+                    audio_type: AudioType::SwordProjectileImpact,
+                });
                 if *role == NetworkRole::Host {
                     if let Some(ref outbox) = outbox {
                         // Impact efekti için Trail veya yeni bir Impact visual_type yollayabilirsin
                         let event = S2C::WeaponFxSpawned {
                             visual_type: VisualType::Trail, // Eger Trail impact anlamına geliyorsa
-                            transform: TransformSnapshot::from_transform(&Transform::from_translation(sword_transform.translation)),
+                            transform: TransformSnapshot::from_transform(
+                                &Transform::from_translation(sword_transform.translation),
+                            ),
                             owner_net_id: None,
                         };
-                        if let Ok(bytes) = encode(&event) { let _ = outbox.0.send(bytes); }
+                        if let Ok(bytes) = encode(&event) {
+                            let _ = outbox.0.send(bytes);
+                        }
                     }
                 }
                 break;
@@ -817,7 +898,6 @@ pub fn move_swords(
         }
     }
 }
-
 
 // Yardımcı fonksiyon - en yakın düşmanı bul
 fn find_nearest_enemy(position: Vec3, enemies: &Query<&Transform, With<Enemy>>) -> Option<Vec3> {

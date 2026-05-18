@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-use bevy::prelude::*;
 use crate::plugins::game_state::GameState;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
+use bevy::prelude::*;
+use std::collections::HashSet;
 
 pub struct GroundPlugin;
 
@@ -46,7 +46,11 @@ impl Default for GroundSystem {
 
 /// Zemin sistemini baslat - texture'u yukle
 pub fn setup_ground(mut commands: Commands, texture_assets: Res<TextureAssets>) {
-    let tile_texture = texture_assets.textures.get(&TextureType::GroundTile).unwrap().clone();
+    let tile_texture = texture_assets
+        .textures
+        .get(&TextureType::GroundTile)
+        .unwrap()
+        .clone();
 
     commands.insert_resource(GroundSystem {
         tile_texture,

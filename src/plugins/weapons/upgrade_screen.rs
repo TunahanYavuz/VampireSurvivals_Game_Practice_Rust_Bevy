@@ -4,7 +4,7 @@ use crate::plugins::audio::GameAudioEntity;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
-    encode, NetOutbox, NetworkRole, NetworkedGameState, S2C, UpgradeMode,
+    NetOutbox, NetworkRole, NetworkedGameState, S2C, UpgradeMode, encode,
 };
 use bevy::prelude::*;
 use bevy::ui::Val::Auto;
@@ -19,31 +19,30 @@ use super::upgrades::{
 pub struct RemoteUpgradeNotice;
 
 pub fn spawn_upgrade_table_ui(commands: &mut Commands) -> Entity {
-    commands.spawn((
-        WeaponTable,
-        Node {
-            width: Val::Percent(40.0),
-            height: Val::Percent(50.0),
-            margin: UiRect {
-                left: Auto,
-                right: Auto,
-                top: Auto,
-                bottom: Auto,
+    commands
+        .spawn((
+            WeaponTable,
+            Node {
+                width: Val::Percent(40.0),
+                height: Val::Percent(50.0),
+                margin: UiRect {
+                    left: Auto,
+                    right: Auto,
+                    top: Auto,
+                    bottom: Auto,
+                },
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_wrap: FlexWrap::Wrap,
+                ..default()
             },
-            display: Display::Flex,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_wrap: FlexWrap::Wrap,
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.7137, 0.7137, 0.7137, 0.92)),
-    )).id()
+            BackgroundColor(Color::srgba(0.7137, 0.7137, 0.7137, 0.92)),
+        ))
+        .id()
 }
 
-pub fn create_upgrade_table_ui(
-    mut commands: Commands,
-    table: Query<Entity, With<WeaponTable>>,
-) {
+pub fn create_upgrade_table_ui(mut commands: Commands, table: Query<Entity, With<WeaponTable>>) {
     if table.iter().next().is_some() {
         return;
     }
@@ -60,30 +59,31 @@ pub fn spawn_remote_upgrade_notice(
         return;
     }
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
-    commands.spawn((
-        RemoteUpgradeNotice,
-        Node {
-            width: Val::Percent(40.0),
-            height: Val::Percent(20.0),
-            margin: UiRect::all(Val::Auto),
-            display: Display::Flex,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.85)),
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            Text::new("Diger oyuncu silah yukseltmesi yapiyor"),
-            TextFont {
-                font,
-                font_size: 22.0,
+    commands
+        .spawn((
+            RemoteUpgradeNotice,
+            Node {
+                width: Val::Percent(40.0),
+                height: Val::Percent(20.0),
+                margin: UiRect::all(Val::Auto),
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            TextColor(Color::WHITE),
-        ));
-    });
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.85)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Diger oyuncu silah yukseltmesi yapiyor"),
+                TextFont {
+                    font,
+                    font_size: 22.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
 }
 
 pub fn cleanup_upgrade_ui_on_choice(
@@ -214,14 +214,19 @@ pub fn show_upgrade_choices_on_level_up(
                 };
 
                 if should_notify_client {
-                    if let Ok(frame) = encode(&S2C::UpgradeOptions { opts, for_player: fp }) {
+                    if let Ok(frame) = encode(&S2C::UpgradeOptions {
+                        opts,
+                        for_player: fp,
+                    }) {
                         let _ = outbox.0.send(frame);
                     }
                 }
 
                 match *upgrade_mode {
                     UpgradeMode::Shared => {
-                        if let Ok(frame) = encode(&S2C::StateChange(NetworkedGameState::HostUpgrade)) {
+                        if let Ok(frame) =
+                            encode(&S2C::StateChange(NetworkedGameState::HostUpgrade))
+                        {
                             let _ = outbox.0.send(frame);
                         }
                     }
@@ -257,7 +262,13 @@ pub fn show_upgrade_choices_on_level_up(
         };
 
         if let Some(table_entity) = table_entity {
-            populate_upgrade_table_entity(&mut commands, table_entity, &asset_server, &locale, &options);
+            populate_upgrade_table_entity(
+                &mut commands,
+                table_entity,
+                &asset_server,
+                &locale,
+                &options,
+            );
         } else {
             populate_upgrade_table(&mut commands, &table, &asset_server, &locale, &options);
         }

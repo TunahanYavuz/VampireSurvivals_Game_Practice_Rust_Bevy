@@ -19,6 +19,7 @@
 //! • **Mode A – Independent**: each player upgrades their own weapons separately.
 //!   P1 levels up on the host machine only; P2's upgrade UI appears on the client.
 
+use crate::plugins::game_state::GameState;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -26,14 +27,13 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, Sender},
-        Arc, Mutex,
     },
     thread,
     time::Duration,
 };
-use crate::plugins::game_state::GameState;
 
 /// TCP port the host listens on.
 pub const NET_PORT: u16 = 7777;
@@ -58,10 +58,16 @@ pub enum S2C {
     StateChange(NetworkedGameState),
     /// Upgrade options the client should present.
     /// `opts`: up to 3 `WeaponType` indices; `for_player`: 0=P1, 1=P2, 255=both.
-    UpgradeOptions { opts: Vec<u8>, for_player: u8 },
+    UpgradeOptions {
+        opts: Vec<u8>,
+        for_player: u8,
+    },
     /// An upgrade was applied on the host; client must apply it too.
     /// `weapon_type`: `WeaponType` index; `for_player`: 0=P1, 1=P2, 255=both.
-    UpgradeApplied { weapon_type: u8, for_player: u8 },
+    UpgradeApplied {
+        weapon_type: u8,
+        for_player: u8,
+    },
     /// The upgrade mode chosen in the lobby (0 = Shared, 1 = Independent).
     UpgradeMode(u8),
     // Silah efektleri client a giden
@@ -78,7 +84,7 @@ pub enum S2C {
     },
     AudioSpawned {
         audio_type: u8,
-    }
+    },
 }
 
 /// A compact representation of `GameState` that can be sent over the network.
@@ -197,8 +203,8 @@ pub enum VisualType {
     RayGunRay,
     FlameAura,
     // ── VFX (Event based)
-    MuzzleFlash {direction: Vec3},
-    Explosion {radius: f32},
+    MuzzleFlash { direction: Vec3 },
+    Explosion { radius: f32 },
     Trail,
 }
 
@@ -228,7 +234,11 @@ impl TransformSnapshot {
     /// Reconstruct a Bevy `Transform` from a `TransformSnapshot`.
     pub fn to_transform(self) -> Transform {
         Transform {
-            translation: Vec3::new(self.translation[0], self.translation[1], self.translation[2]),
+            translation: Vec3::new(
+                self.translation[0],
+                self.translation[1],
+                self.translation[2],
+            ),
             rotation: Quat::from_xyzw(
                 self.rotation[0],
                 self.rotation[1],
@@ -383,11 +393,7 @@ impl Plugin for NetworkPlugin {
             .init_resource::<PendingAudioEvents>()
             .add_systems(
                 Update,
-                (
-                    poll_pending_connection,
-                    drain_inbox,
-                    apply_pending_state,
-                ),
+                (poll_pending_connection, drain_inbox, apply_pending_state),
             );
     }
 }
@@ -425,24 +431,26 @@ fn spawn_net_threads(stream: TcpStream) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>) 
     let mut write_stream = stream;
 
     // Reader: length-prefix decode → push to inbox_tx
-    thread::spawn(move || loop {
-        let len_bytes = match read_exact(&mut read_stream, 4) {
-            Ok(b) => b,
-            Err(_) => break,
-        };
-        let len =
-            u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
-        // Sanity guard: skip absurdly large frames (> 1 MiB)
-        if len == 0 || len > 1_048_576 {
-            break;
-        }
-        match read_exact(&mut read_stream, len) {
-            Ok(payload) => {
-                if inbox_tx.send(payload).is_err() {
-                    break;
-                }
+    thread::spawn(move || {
+        loop {
+            let len_bytes = match read_exact(&mut read_stream, 4) {
+                Ok(b) => b,
+                Err(_) => break,
+            };
+            let len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]])
+                as usize;
+            // Sanity guard: skip absurdly large frames (> 1 MiB)
+            if len == 0 || len > 1_048_576 {
+                break;
             }
-            Err(_) => break,
+            match read_exact(&mut read_stream, len) {
+                Ok(payload) => {
+                    if inbox_tx.send(payload).is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
         }
     });
 
@@ -464,9 +472,7 @@ fn spawn_net_threads(stream: TcpStream) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>) 
 /// Returns a `PendingConnection`; poll `ready` in a Bevy system.
 pub fn start_host() -> PendingConnection {
     let ready = Arc::new(AtomicBool::new(false));
-    let channels = Arc::new(Mutex::new(
-        None::<(Sender<Vec<u8>>, Receiver<Vec<u8>>)>,
-    ));
+    let channels = Arc::new(Mutex::new(None::<(Sender<Vec<u8>>, Receiver<Vec<u8>>)>));
 
     let ready2 = ready.clone();
     let channels2 = channels.clone();
@@ -498,9 +504,7 @@ pub fn start_host() -> PendingConnection {
 /// Returns a `PendingConnection`; poll `ready` in a Bevy system.
 pub fn start_client(host_ip: String) -> PendingConnection {
     let ready = Arc::new(AtomicBool::new(false));
-    let channels = Arc::new(Mutex::new(
-        None::<(Sender<Vec<u8>>, Receiver<Vec<u8>>)>,
-    ));
+    let channels = Arc::new(Mutex::new(None::<(Sender<Vec<u8>>, Receiver<Vec<u8>>)>));
 
     let ready2 = ready.clone();
     let channels2 = channels.clone();
@@ -653,16 +657,12 @@ fn drain_inbox(
                             net_id,
                             visual_type,
                             owner_net_id,
-                        } => {
-                            pending_weapon_state_events.0.push(S2C::WeaponStateChanged {
-                                net_id,
-                                visual_type,
-                                owner_net_id,
-                            })
-                        }
-                        S2C::AudioSpawned {
-                            audio_type,
-                        } => {
+                        } => pending_weapon_state_events.0.push(S2C::WeaponStateChanged {
+                            net_id,
+                            visual_type,
+                            owner_net_id,
+                        }),
+                        S2C::AudioSpawned { audio_type } => {
                             pending_audio_events.0.push(audio_type);
                         }
                     }
@@ -672,8 +672,6 @@ fn drain_inbox(
         }
     }
 }
-
-
 
 /// Apply a pending game-state change (received from the host) on the client.
 fn apply_pending_state(

@@ -4,11 +4,10 @@ use crate::plugins::enemy::{Enemy, XP};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::network::{
-    C2S, NetworkRole, NetOutbox, PendingStatSnapshot, RemoteInput, StatSnapshotMsg, PlayerStat,
-    NetworkIdentity, EntitySnapshot, TransformSnapshot, UpgradeMode,
-    encode,
+    C2S, EntitySnapshot, NetOutbox, NetworkIdentity, NetworkRole, PendingStatSnapshot, PlayerStat,
+    RemoteInput, StatSnapshotMsg, TransformSnapshot, UpgradeMode, encode,
 };
-use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer, GameTimer};
+use crate::plugins::timers::{GameTimer, MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapons::LevelUpEvent;
 use bevy::camera::primitives::Aabb;
 use bevy::image::TextureAtlas;
@@ -18,22 +17,21 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<GainXpEvent>()
-            .add_systems(
-                Update,
-                (
-                    move_player,
-                    sync_camera.after(move_player),
-                    reduce_player_health,
-                    collect_xp_with_magnet,
-                    magnetite_xp_to_player,
-                    apply_gain_xp_events,
-                    // Network systems
-                    send_client_input,
-                    apply_stat_snapshot,
-                )
-                    .run_if(in_state(GameState::Playing)),
-            );
+        app.add_message::<GainXpEvent>().add_systems(
+            Update,
+            (
+                move_player,
+                sync_camera.after(move_player),
+                reduce_player_health,
+                collect_xp_with_magnet,
+                magnetite_xp_to_player,
+                apply_gain_xp_events,
+                // Network systems
+                send_client_input,
+                apply_stat_snapshot,
+            )
+                .run_if(in_state(GameState::Playing)),
+        );
     }
 }
 

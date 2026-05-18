@@ -1,25 +1,28 @@
+use crate::plugins::audio::{AudioType, GameAudio};
+use crate::plugins::boss::BossSpawnTracker;
 use crate::plugins::common::GameEntity;
+use crate::plugins::config::Config;
 use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
-use crate::plugins::network::{ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingAudioEvents, PendingEntitySnapshots, PendingWeaponFxEvents, PendingWeaponStateEvents, VisualType, S2C};
+use crate::plugins::network::{
+    ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingAudioEvents,
+    PendingEntitySnapshots, PendingWeaponFxEvents, PendingWeaponStateEvents, S2C, VisualType,
+};
+use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use crate::plugins::player::{Player, flush_stat_snapshot};
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer, PlayerHealthReduceTimer};
 use crate::plugins::weapons::{
-    attach_trail_effect, raygun_spark_config, spawn_explosion_effect,
-    spawn_muzzle_flash, spawn_weapons_for_player, WeaponType,
+    WeaponType, attach_trail_effect, raygun_spark_config, spawn_explosion_effect,
+    spawn_muzzle_flash, spawn_weapons_for_player,
 };
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::image::TextureAtlas;
 use bevy::prelude::*;
-use crate::plugins::boss::BossSpawnTracker;
-use crate::plugins::config::Config;
 use std::collections::HashSet;
-use crate::plugins::audio::{AudioType, GameAudio};
-use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 
 pub struct GamePlugin;
 
@@ -50,7 +53,14 @@ impl Plugin for GamePlugin {
             // Client: apply incoming entity snapshots to the ghost world.
             .add_systems(
                 Update,
-                (handle_client_weapon_fx, handle_client_weapon_state, flush_stat_snapshot, client_entity_sync, play_pending_audio_events).run_if(in_state(GameState::Playing)),
+                (
+                    handle_client_weapon_fx,
+                    handle_client_weapon_state,
+                    flush_stat_snapshot,
+                    client_entity_sync,
+                    play_pending_audio_events,
+                )
+                    .run_if(in_state(GameState::Playing)),
             );
     }
 }
@@ -62,22 +72,39 @@ pub fn handle_client_weapon_fx(
     _meshes: ResMut<Assets<Mesh>>,
     _materials: ResMut<Assets<ColorMaterial>>,
     texture_assets: Res<TextureAssets>,
-){
-    if *role != NetworkRole::Client {return;}
+) {
+    if *role != NetworkRole::Client {
+        return;
+    }
 
     for event in fx_events.0.drain(..) {
-        if let S2C::WeaponFxSpawned { visual_type, transform, .. } = event {
+        if let S2C::WeaponFxSpawned {
+            visual_type,
+            transform,
+            ..
+        } = event
+        {
             let _t = transform.to_transform();
             match visual_type {
                 VisualType::LaserProjectile => {}
                 VisualType::RocketProjectile => {}
-                VisualType::SwordWeapon => {
-
-                }
+                VisualType::SwordWeapon => {}
                 VisualType::RayGunRay => {}
                 VisualType::FlameAura => {}
-                VisualType::MuzzleFlash {direction} => {spawn_muzzle_flash(&mut commands, Vec3::from(transform.translation), direction, &texture_assets);}
-                VisualType::Explosion {radius} => {spawn_explosion_effect(&mut commands, Vec3::from(transform.translation),radius ,&texture_assets)}
+                VisualType::MuzzleFlash { direction } => {
+                    spawn_muzzle_flash(
+                        &mut commands,
+                        Vec3::from(transform.translation),
+                        direction,
+                        &texture_assets,
+                    );
+                }
+                VisualType::Explosion { radius } => spawn_explosion_effect(
+                    &mut commands,
+                    Vec3::from(transform.translation),
+                    radius,
+                    &texture_assets,
+                ),
                 VisualType::Trail => {}
                 _ => {}
             }
@@ -92,14 +119,25 @@ pub fn handle_client_weapon_state(
     player_query: Query<(Entity, &Player)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-){
-    if *role != NetworkRole::Client { return; }
+) {
+    if *role != NetworkRole::Client {
+        return;
+    }
 
     for event in state_events.0.drain(..) {
         // Hangi oyuncu için silah spawn edilecek bul
-        if let S2C::WeaponStateChanged { net_id: _,visual_type, owner_net_id} = event {
+        if let S2C::WeaponStateChanged {
+            net_id: _,
+            visual_type,
+            owner_net_id,
+        } = event
+        {
             let target_player_entity = player_query.iter().find_map(|(e, p)| {
-                if p.player_index as u32  == owner_net_id{ Some(e) } else { None }
+                if p.player_index as u32 == owner_net_id {
+                    Some(e)
+                } else {
+                    None
+                }
             });
 
             if let Some(player_entity) = target_player_entity {
@@ -109,7 +147,9 @@ pub fn handle_client_weapon_state(
                             parent.spawn((
                                 // GhostsEntity koymana bile gerek yok
                                 Mesh2d(meshes.add(Annulus::new(0.8, 1.0))),
-                                MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(0.89, 0.35, 0.13, 0.75)))),
+                                MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgba(
+                                    0.89, 0.35, 0.13, 0.75,
+                                )))),
                                 Transform::default(), // Oyuncuya göre ortala
                                 GlobalTransform::default(),
                                 NoAutoAabb,
@@ -131,8 +171,7 @@ pub struct Atlases {
 }
 
 fn minimal_setup(mut commands: Commands) {
-    commands.spawn((Camera2d, Camera { ..default() },
-        Msaa::Sample8,));
+    commands.spawn((Camera2d, Camera { ..default() }, Msaa::Sample8));
 }
 
 fn prepare_atlases_and_spawn(
@@ -153,9 +192,10 @@ fn prepare_atlases_and_spawn(
         return;
     }
 
-    let all_loaded = textures.textures.values().all(|handle|{
-        asset_server.load_state(handle).is_loaded()
-    });
+    let all_loaded = textures
+        .textures
+        .values()
+        .all(|handle| asset_server.load_state(handle).is_loaded());
     if !all_loaded {
         return;
     }
@@ -209,9 +249,6 @@ fn prepare_atlases_and_spawn(
         ))
         .id();
 
-
-
-
     // Spawn Player 2 (Arrow keys / Client) — always spawned on all machines.
     let p2 = Player {
         health: player_config.health,
@@ -264,7 +301,7 @@ fn prepare_atlases_and_spawn(
             player_config.starting_weapon.as_str(),
             &textures_assets,
         );
-    // Host / Solo: spawn weapons for P1.  Client has no authoritative weapon state.
+        // Host / Solo: spawn weapons for P1.  Client has no authoritative weapon state.
         spawn_weapons_for_player(
             &mut commands,
             p1_entity,
@@ -374,7 +411,7 @@ pub fn client_entity_sync(
     textures: Res<TextureAssets>,
     atlases: Res<Atlases>,
     texture_assets: Res<TextureAssets>,
-    move_timer: Res<MoveTimer>
+    move_timer: Res<MoveTimer>,
 ) {
     if *role != NetworkRole::Client {
         return;
@@ -409,7 +446,7 @@ pub fn client_entity_sync(
                 let diff = new_transform.translation - t.translation;
                 if diff.length_squared() > 1e-6 && move_timer.timer.just_finished() {
                     if let Some(mut sprite) = opt_sprite {
-                        if let Some(ref mut atlas ) = sprite.texture_atlas {
+                        if let Some(ref mut atlas) = sprite.texture_atlas {
                             let direction = diff.normalize();
                             let i = (atlas.index + 1) % 9;
                             atlas.index = if direction.x.abs() > direction.y.abs() {
@@ -422,8 +459,7 @@ pub fn client_entity_sync(
                 }
                 *t = new_transform;
             }
-        }
-         else {
+        } else {
             // First time seeing this net_id — spawn a visuals-only ghost.
             let entity = spawn_ghost(
                 &mut commands,
@@ -458,10 +494,7 @@ fn spawn_ghost(
 ) -> Entity {
     match visual_type {
         // ── Enemies: reuse the existing sprite atlas ──────────────────────
-        VisualType::Zombie
-        | VisualType::Knight
-        | VisualType::Vampire
-        | VisualType::Robot => {
+        VisualType::Zombie | VisualType::Knight | VisualType::Vampire | VisualType::Robot => {
             let texture_type = match visual_type {
                 VisualType::Zombie => TextureType::Zombie,
                 VisualType::Knight => TextureType::Knight,
@@ -476,13 +509,7 @@ fn spawn_ghost(
                     .spawn((
                         GameEntity,
                         GhostEntity(net_id),
-                        Sprite::from_atlas_image(
-                            tex,
-                            TextureAtlas {
-                                layout,
-                                index: 15,
-                            },
-                        ),
+                        Sprite::from_atlas_image(tex, TextureAtlas { layout, index: 15 }),
                         transform,
                         GlobalTransform::default(),
                         Visibility::default(),
@@ -491,27 +518,71 @@ fn spawn_ghost(
                     .id();
             }
             // Fallback if atlas not ready yet
-            spawn_ghost_circle(commands, net_id, transform, Color::srgb(0.6, 0.0, 0.6), 20.0, meshes, materials)
+            spawn_ghost_circle(
+                commands,
+                net_id,
+                transform,
+                Color::srgb(0.6, 0.0, 0.6),
+                20.0,
+                meshes,
+                materials,
+            )
         }
         // ── Collectibles ──────────────────────────────────────────────────
-        VisualType::XpGem => {
-            spawn_ghost_image(commands, net_id, transform, Sprite::from_image(textures.textures.get(&TextureType::XPGem).unwrap().clone()))
-        }
-        VisualType::Magnet => {
-            spawn_ghost_image(commands, net_id, transform, Sprite::from_image(textures.textures.get(&TextureType::Magnet).unwrap().clone()))
-        }VisualType::HealthPack => {
-            spawn_ghost_image(commands, net_id, transform, Sprite::from_image(textures.textures.get(&TextureType::HealthPack).unwrap().clone()))
-        }VisualType::AtomBomb => {
-            spawn_ghost_image(commands, net_id, transform, Sprite::from_image(textures.textures.get(&TextureType::AtomBomb).unwrap().clone()))
-        }
+        VisualType::XpGem => spawn_ghost_image(
+            commands,
+            net_id,
+            transform,
+            Sprite::from_image(textures.textures.get(&TextureType::XPGem).unwrap().clone()),
+        ),
+        VisualType::Magnet => spawn_ghost_image(
+            commands,
+            net_id,
+            transform,
+            Sprite::from_image(textures.textures.get(&TextureType::Magnet).unwrap().clone()),
+        ),
+        VisualType::HealthPack => spawn_ghost_image(
+            commands,
+            net_id,
+            transform,
+            Sprite::from_image(
+                textures
+                    .textures
+                    .get(&TextureType::HealthPack)
+                    .unwrap()
+                    .clone(),
+            ),
+        ),
+        VisualType::AtomBomb => spawn_ghost_image(
+            commands,
+            net_id,
+            transform,
+            Sprite::from_image(
+                textures
+                    .textures
+                    .get(&TextureType::AtomBomb)
+                    .unwrap()
+                    .clone(),
+            ),
+        ),
         // ── Weapon projectiles / effects ──────────────────────────────────
         VisualType::LaserProjectile => {
-            let entity = spawn_ghost_image(commands, net_id, transform, Sprite::from_image(textures.textures.get(&TextureType::Laser).unwrap().clone()));
+            let entity = spawn_ghost_image(
+                commands,
+                net_id,
+                transform,
+                Sprite::from_image(textures.textures.get(&TextureType::Laser).unwrap().clone()),
+            );
             attach_trail_effect(commands, entity, WeaponType::Laser, texture_assets);
             entity
         }
         VisualType::RocketProjectile => {
-            let entity = spawn_ghost_image(commands, net_id, transform, Sprite::from_image(textures.textures.get(&TextureType::Rocket).unwrap().clone()));
+            let entity = spawn_ghost_image(
+                commands,
+                net_id,
+                transform,
+                Sprite::from_image(textures.textures.get(&TextureType::Rocket).unwrap().clone()),
+            );
             attach_trail_effect(commands, entity, WeaponType::Rocket, texture_assets);
             entity
         }
@@ -519,44 +590,59 @@ fn spawn_ghost(
             let entity = if let Some(tex) = textures.textures.get(&TextureType::Sword) {
                 spawn_ghost_image(commands, net_id, transform, Sprite::from_image(tex.clone()))
             } else {
-                spawn_ghost_circle(commands, net_id, transform, Color::srgb(1.0, 1.0, 0.0), 30.0, meshes, materials)
+                spawn_ghost_circle(
+                    commands,
+                    net_id,
+                    transform,
+                    Color::srgb(1.0, 1.0, 0.0),
+                    30.0,
+                    meshes,
+                    materials,
+                )
             };
             attach_trail_effect(commands, entity, WeaponType::Sword, texture_assets);
             entity
         }
-        VisualType::FlameAura => {
-            spawn_ghost_circle(commands, net_id, transform, Color::srgba(1.0, 0.4, 0.0, 0.5), 100.0, meshes, materials)
-        }
+        VisualType::FlameAura => spawn_ghost_circle(
+            commands,
+            net_id,
+            transform,
+            Color::srgba(1.0, 0.4, 0.0, 0.5),
+            100.0,
+            meshes,
+            materials,
+        ),
         VisualType::RayGunRay => {
-            let entity = commands.spawn((
+            let entity = commands
+                .spawn((
                     GameEntity,
-                GhostEntity(net_id),
-                Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
-                MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(0.0, 1.0, 1.0)))),
-                transform,
-                GlobalTransform::default(),
-                Visibility::default(),
-                NoAutoAabb,
-                ParticleEmitter {
-                    enabled: true,
-                    spawn_timer: Timer::from_seconds(0.04, TimerMode::Repeating),
-                    particles_per_spawn: 8,
-                    config: raygun_spark_config(texture_assets),
-                    offset: Vec3::ZERO,
-                    // Host buradaki transform.scale'i uzattıkça Particle Emitter çizgisi de çalışacaktır!
-                    // Not olarak: Bu "Linear" modu 1x1 karenin boyutuna duyarlı hale getirmek için
-                    // ileride ya Box kullanabilirsin ya da scale bilgisini bir sync sistemiyle Linear'ın ucuna verebilirsin.
-                    // Şimdilik Box modu en temizidir, ışının sündüğü alan (scale boyutu) kadar parçacık saçar.
-                    spawn_mode: SpawnMode::Box {
-                        size: Vec2::new(1.0, 1.0),
+                    GhostEntity(net_id),
+                    Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                    MeshMaterial2d(materials.add(ColorMaterial::from(Color::srgb(0.0, 1.0, 1.0)))),
+                    transform,
+                    GlobalTransform::default(),
+                    Visibility::default(),
+                    NoAutoAabb,
+                    ParticleEmitter {
+                        enabled: true,
+                        spawn_timer: Timer::from_seconds(0.04, TimerMode::Repeating),
+                        particles_per_spawn: 8,
+                        config: raygun_spark_config(texture_assets),
+                        offset: Vec3::ZERO,
+                        // Host buradaki transform.scale'i uzattıkça Particle Emitter çizgisi de çalışacaktır!
+                        // Not olarak: Bu "Linear" modu 1x1 karenin boyutuna duyarlı hale getirmek için
+                        // ileride ya Box kullanabilirsin ya da scale bilgisini bir sync sistemiyle Linear'ın ucuna verebilirsin.
+                        // Şimdilik Box modu en temizidir, ışının sündüğü alan (scale boyutu) kadar parçacık saçar.
+                        spawn_mode: SpawnMode::Box {
+                            size: Vec2::new(1.0, 1.0),
+                        },
+                        lifetime: None,
                     },
-                    lifetime: None,
-                },
-                )).id();
+                ))
+                .id();
             entity
         }
-        _ => {Entity::PLACEHOLDER}
-
+        _ => Entity::PLACEHOLDER,
     }
 }
 
@@ -607,7 +693,7 @@ pub fn play_pending_audio_events(
     audio: Res<GameAudio>,
     role: Res<NetworkRole>,
     mut commands: Commands,
-){
+) {
     if *role != NetworkRole::Client {
         pending.0.clear();
         return;

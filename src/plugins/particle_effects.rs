@@ -10,12 +10,15 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (update_particles, update_particle_emitters, cleanup_dead_particles,)
+            (
+                update_particles,
+                update_particle_emitters,
+                cleanup_dead_particles,
+            )
                 .run_if(in_state(GameState::Playing)),
         );
     }
 }
-
 
 #[derive(Component)]
 pub struct Particle {
@@ -48,7 +51,6 @@ impl Default for Particle {
     }
 }
 
-
 #[derive(Clone, Default)]
 pub enum SpawnMode {
     #[default]
@@ -60,7 +62,9 @@ pub enum SpawnMode {
         start_point: Vec3,
         end_point: Vec3,
     },
-    Box { size: Vec2 },
+    Box {
+        size: Vec2,
+    },
 }
 
 #[derive(Component)]
@@ -108,7 +112,7 @@ pub struct ParticleConfig {
 
 impl Default for ParticleConfig {
     fn default() -> Self {
-        Self{
+        Self {
             texture: None,
             particle_lifetime: 1.0,
             velocity_min: Vec2::new(-50.0, -50.0),
@@ -130,7 +134,7 @@ impl Default for ParticleConfig {
 pub fn update_particles(
     time: Res<Time>,
     mut particles: Query<(&mut Particle, &mut Transform, &mut Sprite)>,
-){
+) {
     for (mut particle, mut transform, mut sprite) in particles.iter_mut() {
         particle.lifetime.tick(time.delta());
         let progress = particle.lifetime.fraction();
@@ -139,11 +143,11 @@ pub fn update_particles(
         particle.velocity += p_acceleration;
         particle.velocity.y -= particle.gravity * time.delta_secs();
         particle.velocity *= p_friction;
-        
+
         transform.translation += particle.velocity.extend(0.0) * time.delta_secs();
-        
+
         transform.rotation *= Quat::from_rotation_z(particle.rotation_speed * time.delta_secs());
-        
+
         let scale = particle.start_scale + (particle.end_scale - particle.start_scale) * progress;
         transform.scale = Vec3::splat(scale);
 
@@ -162,7 +166,7 @@ pub fn update_particle_emitters(
     mut commands: Commands,
     time: Res<Time>,
     texture_assets: Res<TextureAssets>,
-    mut emitters: Query<(Entity, &mut ParticleEmitter, &GlobalTransform)>
+    mut emitters: Query<(Entity, &mut ParticleEmitter, &GlobalTransform)>,
 ) {
     for (entity, mut emitter, global_transform) in emitters.iter_mut() {
         if !emitter.enabled {
@@ -177,7 +181,12 @@ pub fn update_particle_emitters(
                     // Normal spawn - tek noktada
                     let spawn_position = global_transform.translation() + emitter.offset;
                     for _ in 0..emitter.particles_per_spawn {
-                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
+                        spawn_particles(
+                            &mut commands,
+                            &texture_assets,
+                            spawn_position,
+                            &emitter.config,
+                        );
                     }
                 }
                 SpawnMode::Circular { radius } => {
@@ -185,31 +194,47 @@ pub fn update_particle_emitters(
                     let angle_step = std::f32::consts::TAU / emitter.particles_per_spawn as f32;
                     for i in 0..emitter.particles_per_spawn {
                         let angle = angle_step * i as f32;
-                        let offset = Vec3::new(
-                            angle.cos() * radius,
-                            angle.sin() * radius,
-                            0.0
+                        let offset = Vec3::new(angle.cos() * radius, angle.sin() * radius, 0.0);
+                        let spawn_position =
+                            global_transform.translation() + offset + emitter.offset;
+                        spawn_particles(
+                            &mut commands,
+                            &texture_assets,
+                            spawn_position,
+                            &emitter.config,
                         );
-                        let spawn_position = global_transform.translation() + offset + emitter.offset;
-                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }
-                SpawnMode::Linear { start_point, end_point } => {
+                SpawnMode::Linear {
+                    start_point,
+                    end_point,
+                } => {
                     // Linear spawn - cizgi boyunca
                     for _ in 0..emitter.particles_per_spawn {
                         let t = rand_range(0.0, 1.0);
-                        let spawn_position = global_transform.translation() + start_point.lerp(*end_point, t);
-                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
+                        let spawn_position =
+                            global_transform.translation() + start_point.lerp(*end_point, t);
+                        spawn_particles(
+                            &mut commands,
+                            &texture_assets,
+                            spawn_position,
+                            &emitter.config,
+                        );
                     }
                 }
                 SpawnMode::Box { size } => {
                     for _ in 0..emitter.particles_per_spawn {
-                        let x = rand_range(-size.x/2.0, size.x/2.0 );
-                        let y = rand_range(-size.y/2.0, size.y/2.0 );
+                        let x = rand_range(-size.x / 2.0, size.x / 2.0);
+                        let y = rand_range(-size.y / 2.0, size.y / 2.0);
 
                         let local_pos = Vec3::new(x, y, 0.0) + emitter.offset;
                         let spawn_position = global_transform.transform_point(local_pos);
-                        spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
+                        spawn_particles(
+                            &mut commands,
+                            &texture_assets,
+                            spawn_position,
+                            &emitter.config,
+                        );
                     }
                 }
             }
@@ -229,15 +254,15 @@ pub fn spawn_particles(
     texture_assets: &TextureAssets,
     position: Vec3,
     config: &ParticleConfig,
-){
+) {
     let velocity = Vec2::new(
         rand_range(config.velocity_min.x, config.velocity_max.x),
         rand_range(config.velocity_min.y, config.velocity_max.y),
     );
-    
+
     let start_scale = rand_range(config.start_scale_min, config.start_scale_max);
     let rotation_speed = rand_range(config.rotation_speed_min, config.rotation_speed_max);
-    
+
     let offset = if config.spawn_radius > 0.0 {
         let angle = rand_range(0.0, std::f32::consts::TAU);
         let dist = rand_range(0.0, config.spawn_radius);
@@ -245,12 +270,18 @@ pub fn spawn_particles(
     } else {
         Vec3::ZERO
     };
-    
-    let texture = config.texture.clone().unwrap_or_else(|| texture_assets.textures.get(&TextureType::Particle).unwrap().clone());
+
+    let texture = config.texture.clone().unwrap_or_else(|| {
+        texture_assets
+            .textures
+            .get(&TextureType::Particle)
+            .unwrap()
+            .clone()
+    });
 
     commands.spawn((
         GameEntity,
-        Particle{
+        Particle {
             velocity,
             acceleration: Vec2::ZERO,
             lifetime: Timer::from_seconds(config.particle_lifetime, TimerMode::Once),
@@ -269,13 +300,10 @@ pub fn spawn_particles(
         },
         Transform::from_translation(position + offset + Vec3::Z * 15.0)
             .with_scale(Vec3::splat(start_scale)),
-        ));
+    ));
 }
 
-pub fn cleanup_dead_particles(
-    mut commands: Commands,
-    particles: Query<(Entity, &Particle)>,
-){
+pub fn cleanup_dead_particles(mut commands: Commands, particles: Query<(Entity, &Particle)>) {
     for (entity, particle) in particles.iter() {
         if particle.lifetime.is_finished() {
             commands.entity(entity).despawn();
