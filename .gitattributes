@@ -1,3 +1,5 @@
 *.wgsl linguist-detectable=false linguist-vendored
-*.glsl linguist-detectable=false linguist-vendored
+*.vert linguist-detectable=false linguist-vendored
+*.wesl linguist-detectable=false linguist-vendored
+*.frag linguist-detectable=false linguist-vendored
 *.ron linguist-detectable=false
