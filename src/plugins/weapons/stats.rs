@@ -122,7 +122,7 @@ pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity) {
         Weapon {
             owner: player_entity,
             damage: 1.0,
-            fire_timer: Timer::from_seconds(0.5, TimerMode::Repeating),
+            fire_timer: Timer::from_seconds(2.0, TimerMode::Repeating),
             speed: 0.0,
         },
         RayGunWeapon::default(),
@@ -169,7 +169,7 @@ pub fn spawn_flame_weapon(
                 base_damage: 5.0,
                 base_fire_rate: 0.1,
                 base_speed: 0.0,
-                base_range: base_range,
+                base_range,
             },
             // Flame particle emitter - dairesel spawn
             ParticleEmitter {
@@ -185,7 +185,6 @@ pub fn spawn_flame_weapon(
             GlobalTransform::default(),
         ));
     });
-
 }
 
 #[derive(Component)]

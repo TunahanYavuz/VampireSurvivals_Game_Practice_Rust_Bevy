@@ -162,9 +162,9 @@ pub fn update_particle_emitters(
     mut commands: Commands,
     time: Res<Time>,
     texture_assets: Res<TextureAssets>,
-    mut emitters: Query<(Entity, &mut ParticleEmitter, &Transform)>
+    mut emitters: Query<(Entity, &mut ParticleEmitter, &GlobalTransform)>
 ) {
-    for (entity, mut emitter, transform) in emitters.iter_mut() {
+    for (entity, mut emitter, global_transform) in emitters.iter_mut() {
         if !emitter.enabled {
             continue;
         }
@@ -175,7 +175,7 @@ pub fn update_particle_emitters(
             match &emitter.spawn_mode {
                 SpawnMode::Point => {
                     // Normal spawn - tek noktada
-                    let spawn_position = transform.translation + emitter.offset;
+                    let spawn_position = global_transform.translation() + emitter.offset;
                     for _ in 0..emitter.particles_per_spawn {
                         spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
@@ -190,7 +190,7 @@ pub fn update_particle_emitters(
                             angle.sin() * radius,
                             0.0
                         );
-                        let spawn_position = transform.translation + offset + emitter.offset;
+                        let spawn_position = global_transform.translation() + offset + emitter.offset;
                         spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }
@@ -198,7 +198,7 @@ pub fn update_particle_emitters(
                     // Linear spawn - cizgi boyunca
                     for _ in 0..emitter.particles_per_spawn {
                         let t = rand_range(0.0, 1.0);
-                        let spawn_position = transform.translation + start_point.lerp(*end_point, t);
+                        let spawn_position = global_transform.translation() + start_point.lerp(*end_point, t);
                         spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }
@@ -208,7 +208,7 @@ pub fn update_particle_emitters(
                         let y = rand_range(-size.y/2.0, size.y/2.0 );
 
                         let local_pos = Vec3::new(x, y, 0.0) + emitter.offset;
-                        let spawn_position = transform.transform_point(local_pos);
+                        let spawn_position = global_transform.transform_point(local_pos);
                         spawn_particles(&mut commands, &texture_assets, spawn_position, &emitter.config);
                     }
                 }

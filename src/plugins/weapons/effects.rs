@@ -57,8 +57,7 @@ pub fn laser_trail_config(
     }
 }
 
-pub fn rocket_trail_config(
-    texture_assets: &TextureAssets )-> ParticleConfig {
+pub fn rocket_trail_config(texture_assets: &TextureAssets ) -> ParticleConfig {
     ParticleConfig {
         texture: Some(texture_assets.textures.get(&TextureType::Smoke).unwrap().clone()),
         particle_lifetime: 0.8,
