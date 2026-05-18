@@ -312,10 +312,10 @@ fn send_client_input(
     }
 
     let input = crate::plugins::network::InputState {
-        left: keyboard.pressed(KeyCode::ArrowLeft),
-        right: keyboard.pressed(KeyCode::ArrowRight),
-        up: keyboard.pressed(KeyCode::ArrowUp),
-        down: keyboard.pressed(KeyCode::ArrowDown),
+        left: keyboard.pressed(KeyCode::KeyA),
+        right: keyboard.pressed(KeyCode::KeyD),
+        up: keyboard.pressed(KeyCode::KeyW),
+        down: keyboard.pressed(KeyCode::KeyS),
         collect_magnet: keyboard.just_pressed(KeyCode::KeyC),
         mouse_world_pos,
     };
@@ -473,9 +473,7 @@ pub fn apply_gain_xp_events(
         let Some(mut player) = target_player else {
             continue;
         };
-        if player.player_index == 0 {
-            println!("Applying {} XP to Player 1 (currently level {}, {} XP)", event.amount, player.level, player.xp);
-        }
+
         player.xp += event.amount;
 
         if player.xp >= player.xp_to_next_level {
