@@ -9,7 +9,7 @@ use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoFrustumCulling};
 use bevy::prelude::*;
-use bevy::tasks::futures_lite::StreamExt;
+use crate::plugins::audio::{AudioType, GameAudio};
 use super::effects::{
     attach_trail_effect, raygun_spark_config, spawn_explosion_effect, spawn_impact_effects,
     spawn_muzzle_flash,
@@ -136,6 +136,7 @@ pub struct RayGunRay {
     pub target_entity: Entity,
     pub damage: f32,
     pub damage_timer: Timer,
+    pub owner: Entity,
 }
 
 impl Default for RayGunRay {
@@ -144,6 +145,7 @@ impl Default for RayGunRay {
             target_entity: Entity::PLACEHOLDER,
             damage: 10.0,
             damage_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+            owner: Entity::PLACEHOLDER,
         }
     }
 }
@@ -158,7 +160,9 @@ pub fn fire_raygun_weapons(
     mut materials: ResMut<Assets<ColorMaterial>>,
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
+    audio: Res<GameAudio>,
 ) {
+    let mut played: bool = false;
     for (mut weapon, mut raygun) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
         raygun.retarget_timer.tick(time.delta());
@@ -209,6 +213,7 @@ pub fn fire_raygun_weapons(
                 RayGunRay {
                     target_entity: enemy_entity,
                     damage: weapon.damage,
+                    owner: weapon.owner,
                     ..default()
                 },
                 Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
@@ -232,24 +237,28 @@ pub fn fire_raygun_weapons(
                     lifetime: None,
                 },
             ));
+            if !played {
+                audio.play_sound(&mut commands, &AudioType::RaygunRayFire, PlaybackSettings::DESPAWN);
+                played = true;
+            }
         }
+
     }
 }
 
 
 pub fn update_raygun_rays(
     mut raygun_q: Query<
-        (&RayGunRay, &mut Transform, &mut ParticleEmitter),
+        (&RayGunRay, &mut Transform),
         (With<RayGunRay>, Without<Player>, Without<Enemy>),
     >,
     enemies: Query<&Transform, (With<Enemy>, Without<Player>)>,
     player: Query<&Transform, (With<Player>, Without<Enemy>)>,
 ) {
-    let Ok(player_transform) = player.single() else {
-        return;
-    };
-
-    for (ray, mut ray_transform, _emitter) in raygun_q.iter_mut() {
+    for (ray, mut ray_transform) in raygun_q.iter_mut() {
+        let Ok(player_transform) = player.get(ray.owner) else {
+            continue;
+        };
         ray_transform.translation = player_transform.translation.with_z(10.0);
 
         if let Ok(enemy_transform) = enemies.get(ray.target_entity) {
@@ -259,13 +268,9 @@ pub fn update_raygun_rays(
             ray_transform.translation = (player_transform.translation + direction / 2.0).with_z(1.0);
             ray_transform.rotation = Quat::from_rotation_z(angle);
             ray_transform.scale = Vec3::new(distance, 5.0, 1.0);
-            // ParticleEmitter'ın end_point'ini güncelle
-            // emitter.spawn_mode = SpawnMode::Box {
-            //     start_point: Vec3::ZERO,
-            //     end_point: direction,
-            // };
         }
     }
+
 }
 
 pub fn raygun_damage(
@@ -322,6 +327,7 @@ pub fn raygun_damage(
         }
     }
 
+
     // İkinci geçiş: ölen düşmanların raylerini temizle
     if !dead_enemies.is_empty() {
         for (raygun, _transform, raygun_entity) in raygun_q.iter() {
@@ -350,6 +356,7 @@ pub fn fire_laser_weapons(
     mut net_id_counter: ResMut<NetIdCounter>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
+    audio: Res<GameAudio>,
 ) {
     for (mut weapon, laser) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -381,7 +388,7 @@ pub fn fire_laser_weapons(
             if let Some(ref outbox) = outbox {
                 let event = S2C::WeaponFxSpawned {
                     visual_type: VisualType::MuzzleFlash {
-                        direction: direction,
+                        direction,
                     },
                     transform: TransformSnapshot::from_transform(&Transform::from_translation(player_transform.translation)),
                     owner_net_id: None,
@@ -412,6 +419,7 @@ pub fn fire_laser_weapons(
             GlobalTransform::default(),
         )).id();
         attach_trail_effect(&mut commands, projectile_entity, WeaponType::Laser, &texture_assets);
+        audio.play_sound(&mut commands, &AudioType::LaserProjectileFire, PlaybackSettings::DESPAWN);
     }
 }
 
@@ -426,6 +434,7 @@ pub fn fire_rocket_weapons(
     mut net_id_counter: ResMut<NetIdCounter>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
+    audio: Res<GameAudio>,
 ) {
     for (mut weapon, rocket) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -487,6 +496,7 @@ pub fn fire_rocket_weapons(
             GlobalTransform::default(),
         )).id();
         attach_trail_effect(&mut commands, projectile_entity, WeaponType::Rocket, &texture_assets);
+        audio.play_sound(&mut commands, &AudioType::RocketProjectileFire, PlaybackSettings::DESPAWN);
     }
 }
 
@@ -666,7 +676,8 @@ pub fn throw_swords(
     camera: Query<(&Camera, &GlobalTransform)>,
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
-    r_input: Res<RemoteInput>
+    r_input: Res<RemoteInput>,
+    audio: Res<GameAudio>,
 ) {
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
@@ -738,6 +749,7 @@ pub fn throw_swords(
             WeaponType::Sword,
             &texture_assets,
         );
+        audio.play_sound(&mut commands, &AudioType::SwordProjectileFire, PlaybackSettings::DESPAWN);
     }
 }
 
@@ -752,6 +764,7 @@ pub fn move_swords(
     texture_assets: Res<TextureAssets>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
+    audio: Res<GameAudio>,
 ) {
     for (sword_entity, mut sword_transform, mut sword, mut sword_aabb) in swords.iter_mut() {
         // Ömür kontrolü
@@ -781,6 +794,7 @@ pub fn move_swords(
                     WeaponType::Sword,
                     &texture_assets,
                 );
+                audio.play_sound(&mut commands, &AudioType::SwordProjectileImpact, PlaybackSettings::DESPAWN);
                 if *role == NetworkRole::Host {
                     if let Some(ref outbox) = outbox {
                         // Impact efekti için Trail veya yeni bir Impact visual_type yollayabilirsin

@@ -1,4 +1,4 @@
-use crate::plugins::audio::{GameAudio, GameAudioEntity};
+use crate::plugins::audio::{AudioType, GameAudio, GameAudioEntity};
 use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Enemy, XP};
 use crate::plugins::game::Atlases;
@@ -92,7 +92,7 @@ impl Player {
         amount: f32,
         message_writer: &mut MessageWriter<LevelUpEvent>,
         next_state: &mut NextState<GameState>,
-        commands: &mut Commands,
+        mut commands: &mut Commands,
         audio: &GameAudio,
     ) {
         self.xp += amount;
@@ -101,11 +101,7 @@ impl Player {
             self.xp -= self.xp_to_next_level;
             self.xp_to_next_level *= 1.5;
             self.level += 1;
-            commands.spawn((
-                GameAudioEntity,
-                AudioPlayer(audio.collect_xp.clone()),
-                PlaybackSettings::DESPAWN,
-            ));
+            audio.play_sound(&mut commands, &AudioType::CollectXp, PlaybackSettings::DESPAWN);
 
             message_writer.write(LevelUpEvent {
                 level: self.level,
@@ -115,8 +111,6 @@ impl Player {
         }
     }
 }
-
-
 
 #[derive(Component)]
 pub struct XPMagnetite;

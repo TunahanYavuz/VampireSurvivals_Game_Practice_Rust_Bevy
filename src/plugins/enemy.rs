@@ -119,11 +119,6 @@ fn despawn_enemies(
             continue;
         }
 
-        commands.spawn((
-            AudioPlayer(audio.enemy_hit.clone()),
-            PlaybackSettings::DESPAWN,
-        ));
-
         if enemy.drops_loot {
             spawn_reinforcement(
                 &mut commands,
