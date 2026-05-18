@@ -33,7 +33,6 @@ use std::{
     thread,
     time::Duration,
 };
-use crate::plugins::audio::{AudioType, GameAudio};
 use crate::plugins::game_state::GameState;
 
 /// TCP port the host listens on.
@@ -87,7 +86,8 @@ pub enum S2C {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NetworkedGameState {
     Playing,
-    UpgradeSelection,
+    HostUpgrade,
+    RemoteUpgrade,
     GameOver,
 }
 
@@ -95,7 +95,8 @@ impl From<NetworkedGameState> for GameState {
     fn from(s: NetworkedGameState) -> GameState {
         match s {
             NetworkedGameState::Playing => GameState::Playing,
-            NetworkedGameState::UpgradeSelection => GameState::UpgradeSelection,
+            NetworkedGameState::HostUpgrade => GameState::HostUpgrade,
+            NetworkedGameState::RemoteUpgrade => GameState::RemoteUpgrade,
             NetworkedGameState::GameOver => GameState::GameOver,
         }
     }

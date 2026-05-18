@@ -9,7 +9,7 @@ use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoFrustumCulling};
 use bevy::prelude::*;
-use crate::plugins::audio::{AudioType, GameAudio};
+use crate::plugins::audio::{AudioType, PlayAudioEvent};
 use super::effects::{
     attach_trail_effect, raygun_spark_config, spawn_explosion_effect, spawn_impact_effects,
     spawn_muzzle_flash,
@@ -160,9 +160,9 @@ pub fn fire_raygun_weapons(
     mut materials: ResMut<Assets<ColorMaterial>>,
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
-    audio: Res<GameAudio>,
-    role: Res<NetworkRole>,
-    outbox: Option<ResMut<NetOutbox>>
+    _role: Res<NetworkRole>,
+    mut audio_events: MessageWriter<PlayAudioEvent>,
+    _outbox: Option<ResMut<NetOutbox>>
 ) {
     let mut played: bool = false;
     for (mut weapon, mut raygun) in weapons.iter_mut() {
@@ -240,15 +240,7 @@ pub fn fire_raygun_weapons(
                 },
             ));
             if !played {
-                audio.play_sound(&mut commands, &AudioType::RaygunRayFire, PlaybackSettings::DESPAWN, &*role);
-                if *role == NetworkRole::Host {
-                    if let Some(outbox) = outbox.as_ref() {
-                        let msg = S2C::AudioSpawned { audio_type: AudioType::SwordProjectileFire.to_u8() };
-                        if let Ok(frame) = encode(&msg) {
-                            let _ = outbox.0.send(frame);
-                        }
-                    }
-                }
+                audio_events.write(PlayAudioEvent { audio_type: AudioType::RaygunRayFire });
                 played = true;
             }
         }
@@ -365,8 +357,8 @@ pub fn fire_laser_weapons(
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
     role: Res<NetworkRole>,
+    mut audio_events: MessageWriter<PlayAudioEvent>,
     outbox: Option<Res<NetOutbox>>,
-    audio: Res<GameAudio>,
 ) {
     for (mut weapon, laser) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -429,15 +421,7 @@ pub fn fire_laser_weapons(
             GlobalTransform::default(),
         )).id();
         attach_trail_effect(&mut commands, projectile_entity, WeaponType::Laser, &texture_assets);
-        audio.play_sound(&mut commands, &AudioType::LaserProjectileFire, PlaybackSettings::DESPAWN, &*role);
-        if *role == NetworkRole::Host {
-            if let Some(outbox) = outbox.as_ref() {
-                let msg = S2C::AudioSpawned { audio_type: AudioType::LaserProjectileFire.to_u8() };
-                if let Ok(frame) = encode(&msg) {
-                    let _ = outbox.0.send(frame);
-                }
-            }
-        }
+        audio_events.write(PlayAudioEvent { audio_type: AudioType::LaserProjectileFire });
     }
 }
 
@@ -451,8 +435,8 @@ pub fn fire_rocket_weapons(
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
     role: Res<NetworkRole>,
+    mut audio_events: MessageWriter<PlayAudioEvent>,
     outbox: Option<Res<NetOutbox>>,
-    audio: Res<GameAudio>,
 ) {
     for (mut weapon, rocket) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
@@ -514,15 +498,7 @@ pub fn fire_rocket_weapons(
             GlobalTransform::default(),
         )).id();
         attach_trail_effect(&mut commands, projectile_entity, WeaponType::Rocket, &texture_assets);
-        audio.play_sound(&mut commands, &AudioType::RocketProjectileFire, PlaybackSettings::DESPAWN, &*role);
-        if *role == NetworkRole::Host {
-            if let Some(outbox) = outbox.as_ref() {
-                let msg = S2C::AudioSpawned { audio_type: AudioType::RocketProjectileFire.to_u8() };
-                if let Ok(frame) = encode(&msg) {
-                    let _ = outbox.0.send(frame);
-                }
-            }
-        }
+        audio_events.write(PlayAudioEvent { audio_type: AudioType::RocketProjectileFire });
     }
 }
 
@@ -703,9 +679,9 @@ pub fn throw_swords(
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
     r_input: Res<RemoteInput>,
-    audio: Res<GameAudio>,
-    role: Res<NetworkRole>,
-    outbox: Option<ResMut<NetOutbox>>,
+    _role: Res<NetworkRole>,
+    mut audio_events: MessageWriter<PlayAudioEvent>,
+    _outbox: Option<ResMut<NetOutbox>>,
 ) {
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
@@ -777,15 +753,7 @@ pub fn throw_swords(
             WeaponType::Sword,
             &texture_assets,
         );
-        audio.play_sound(&mut commands, &AudioType::SwordProjectileFire, PlaybackSettings::DESPAWN, &*role);
-        if *role == NetworkRole::Host {
-            if let Some(outbox) = outbox.as_ref() {
-                let msg = S2C::AudioSpawned { audio_type: AudioType::SwordProjectileFire.to_u8() };
-                if let Ok(frame) = encode(&msg) {
-                    let _ = outbox.0.send(frame);
-                }
-            }
-        }
+        audio_events.write(PlayAudioEvent { audio_type: AudioType::SwordProjectileFire });
     }
 }
 
@@ -800,8 +768,7 @@ pub fn move_swords(
     texture_assets: Res<TextureAssets>,
     role: Res<NetworkRole>,
     outbox: Option<Res<NetOutbox>>,
-    audio: Res<GameAudio>,
-    
+    mut audio_events: MessageWriter<PlayAudioEvent>,
 ) {
     for (sword_entity, mut sword_transform, mut sword, mut sword_aabb) in swords.iter_mut() {
         // Ömür kontrolü
@@ -831,15 +798,7 @@ pub fn move_swords(
                     WeaponType::Sword,
                     &texture_assets,
                 );
-                audio.play_sound(&mut commands, &AudioType::SwordProjectileImpact, PlaybackSettings::DESPAWN, &*role);
-                if *role == NetworkRole::Host {
-                    if let Some(outbox) = outbox.as_ref() {
-                        let msg = S2C::AudioSpawned { audio_type: AudioType::SwordProjectileImpact.to_u8() };
-                        if let Ok(frame) = encode(&msg) {
-                            let _ = outbox.0.send(frame);
-                        }
-                    }
-                }
+                audio_events.write(PlayAudioEvent { audio_type: AudioType::SwordProjectileImpact });
                 if *role == NetworkRole::Host {
                     if let Some(ref outbox) = outbox {
                         // Impact efekti için Trail veya yeni bir Impact visual_type yollayabilirsin

@@ -1,16 +1,15 @@
-use crate::plugins::audio::{AudioType, GameAudio, GameAudioEntity};
+use crate::plugins::audio::{AudioType, PlayAudioEvent};
 use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Enemy, XP};
 use crate::plugins::game::Atlases;
 use crate::plugins::game_state::GameState;
 use crate::plugins::network::{
     C2S, NetworkRole, NetOutbox, PendingStatSnapshot, RemoteInput, StatSnapshotMsg, PlayerStat,
-    NetworkIdentity, EntitySnapshot, TransformSnapshot,
+    NetworkIdentity, EntitySnapshot, TransformSnapshot, UpgradeMode,
     encode,
 };
 use crate::plugins::timers::{MoveTimer, PlayerHealthReduceTimer, GameTimer};
 use crate::plugins::weapons::LevelUpEvent;
-use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
 use bevy::image::TextureAtlas;
 use bevy::prelude::*;
@@ -19,20 +18,22 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                move_player,
-                sync_camera.after(move_player),
-                reduce_player_health,
-                collect_xp_with_magnet,
-                magnetite_xp_to_player,
-                // Network systems
-                send_client_input,
-                apply_stat_snapshot,
-            )
-                .run_if(in_state(GameState::Playing)),
-        );
+        app.add_message::<GainXpEvent>()
+            .add_systems(
+                Update,
+                (
+                    move_player,
+                    sync_camera.after(move_player),
+                    reduce_player_health,
+                    collect_xp_with_magnet,
+                    magnetite_xp_to_player,
+                    apply_gain_xp_events,
+                    // Network systems
+                    send_client_input,
+                    apply_stat_snapshot,
+                )
+                    .run_if(in_state(GameState::Playing)),
+            );
     }
 }
 
@@ -84,31 +85,6 @@ impl Player {
         }
         if self.health == 0 {
             commands.entity(entity).despawn();
-        }
-    }
-
-    pub fn gain_xp(
-        &mut self,
-        amount: f32,
-        message_writer: &mut MessageWriter<LevelUpEvent>,
-        next_state: &mut NextState<GameState>,
-        mut commands: &mut Commands,
-        audio: &GameAudio,
-        role: &NetworkRole,
-    ) {
-        self.xp += amount;
-
-        if self.xp >= self.xp_to_next_level {
-            self.xp -= self.xp_to_next_level;
-            self.xp_to_next_level *= 1.5;
-            self.level += 1;
-            audio.play_sound(&mut commands, &AudioType::CollectXp, PlaybackSettings::DESPAWN, role);
-
-            message_writer.write(LevelUpEvent {
-                level: self.level,
-                player_index: self.player_index,
-            });
-            next_state.set(GameState::UpgradeSelection);
         }
     }
 }
@@ -178,11 +154,7 @@ pub fn move_player(
         // • Client: keyboard for P2 only; P1 position arrives via stat snapshot
         let (left, right, up, down) = match *role {
             NetworkRole::Solo => {
-                let (kl, kr, ku, kd) = if player.player_index == 0 {
-                    (KeyCode::KeyA, KeyCode::KeyD, KeyCode::KeyW, KeyCode::KeyS)
-                } else {
-                    (KeyCode::ArrowLeft, KeyCode::ArrowRight, KeyCode::ArrowUp, KeyCode::ArrowDown)
-                };
+                let (kl, kr, ku, kd) = (KeyCode::KeyA, KeyCode::KeyD, KeyCode::KeyW, KeyCode::KeyS);
                 (
                     keyboard_input.pressed(kl),
                     keyboard_input.pressed(kr),
@@ -208,10 +180,10 @@ pub fn move_player(
                 if player.player_index == 1 {
                     // Local player on the client.
                     (
-                        keyboard_input.pressed(KeyCode::ArrowLeft),
-                        keyboard_input.pressed(KeyCode::ArrowRight),
-                        keyboard_input.pressed(KeyCode::ArrowUp),
-                        keyboard_input.pressed(KeyCode::ArrowDown),
+                        keyboard_input.pressed(KeyCode::KeyA),
+                        keyboard_input.pressed(KeyCode::KeyD),
+                        keyboard_input.pressed(KeyCode::KeyW),
+                        keyboard_input.pressed(KeyCode::KeyS),
                     )
                 } else {
                     // P1 is controlled by the host; skip local movement.
@@ -468,5 +440,67 @@ pub fn flush_stat_snapshot(
     use crate::plugins::network::S2C;
     if let Ok(frame) = encode(&S2C::StatSnapshot(msg)) {
         let _ = outbox.0.send(frame);
+    }
+}
+
+#[derive(Message)]
+pub struct GainXpEvent {
+    pub player_index: u8,
+    pub amount: f32,
+}
+
+pub fn apply_gain_xp_events(
+    role: Res<NetworkRole>,
+    upgrade_mode: Res<UpgradeMode>,
+    mut events: MessageReader<GainXpEvent>,
+    mut players: Query<&mut Player>,
+    mut level_up_events: MessageWriter<LevelUpEvent>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut audio_events: MessageWriter<PlayAudioEvent>,
+) {
+    if *role == NetworkRole::Client {
+        return;
+    }
+
+    for event in events.read() {
+        let mut target_player = players
+            .iter_mut()
+            .find(|p| p.player_index == event.player_index);
+        if target_player.is_none() {
+            target_player = players.iter_mut().next();
+        }
+
+        let Some(mut player) = target_player else {
+            continue;
+        };
+        if player.player_index == 0 {
+            println!("Applying {} XP to Player 1 (currently level {}, {} XP)", event.amount, player.level, player.xp);
+        }
+        player.xp += event.amount;
+
+        if player.xp >= player.xp_to_next_level {
+            player.xp -= player.xp_to_next_level;
+            player.xp_to_next_level *= 1.5;
+            player.level += 1;
+
+            audio_events.write(PlayAudioEvent {
+                audio_type: AudioType::CollectXp,
+            });
+
+            level_up_events.write(LevelUpEvent {
+                level: player.level,
+                player_index: player.player_index,
+            });
+
+            let should_enter_upgrade = match *upgrade_mode {
+                UpgradeMode::Shared => true,
+                UpgradeMode::Independent => player.player_index == 0,
+            };
+            if should_enter_upgrade {
+                next_state.set(GameState::HostUpgrade);
+            } else if *upgrade_mode == UpgradeMode::Independent && player.player_index == 1 {
+                next_state.set(GameState::RemoteUpgrade);
+            }
+        }
     }
 }

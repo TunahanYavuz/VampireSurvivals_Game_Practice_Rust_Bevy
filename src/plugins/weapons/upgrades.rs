@@ -17,8 +17,8 @@ use super::stats::{
     spawn_throwing_weapon, SwordWeapon, WeaponStats,
 };
 use super::upgrade_screen::{
-    cleanup_upgrade_ui_on_choice, create_upgrade_table_ui, handle_upgrade_input,
-    show_upgrade_choices_on_level_up,
+    cleanup_upgrade_ui_on_choice, enter_host_upgrade_ui, enter_remote_upgrade_ui,
+    handle_upgrade_input, show_upgrade_choices_on_level_up,
 };
 use super::upgrades_net::{
     receive_client_upgrade_choice, receive_net_upgrade_applied, receive_net_upgrade_options,
@@ -31,22 +31,43 @@ impl Plugin for UpgradePlugin {
         app.init_resource::<UpgradeChoices>()
             .add_message::<LevelUpEvent>()
             .add_message::<UpgradeSelectedEvent>()
-            .add_systems(OnEnter(GameState::UpgradeSelection), create_upgrade_table_ui)
+            .add_systems(OnEnter(GameState::HostUpgrade), enter_host_upgrade_ui)
+            .add_systems(OnEnter(GameState::RemoteUpgrade), enter_remote_upgrade_ui)
             .add_systems(
-                OnExit(GameState::UpgradeSelection),
+                Update,
+                show_upgrade_choices_on_level_up,
+            )
+            .add_systems(
+                Update,
+                receive_net_upgrade_options,
+            )
+            .add_systems(
+                OnExit(GameState::HostUpgrade),
+                cleanup_upgrade_ui_on_choice,
+            )
+            .add_systems(
+                OnExit(GameState::RemoteUpgrade),
                 cleanup_upgrade_ui_on_choice,
             )
             .add_systems(
                 Update,
+                handle_upgrade_input
+                    .run_if(
+                        in_state(GameState::HostUpgrade)
+                            .or(in_state(GameState::RemoteUpgrade)),
+                    ),
+            )
+            .add_systems(
+                Update,
                 (
-                    show_upgrade_choices_on_level_up,
-                    handle_upgrade_input,
                     apply_weapon_upgrade,
-                    receive_net_upgrade_options,
                     receive_net_upgrade_applied,
                     receive_client_upgrade_choice,
                 )
-                    .run_if(in_state(GameState::UpgradeSelection)),
+                    .run_if(
+                        in_state(GameState::HostUpgrade)
+                            .or(in_state(GameState::RemoteUpgrade)),
+                    ),
             );
     }
 }
@@ -86,7 +107,7 @@ impl WeaponType {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug)]
 pub struct UpgradeOption {
     pub weapon_type: WeaponType,
     pub name: String,
@@ -293,7 +314,11 @@ pub fn apply_weapon_upgrade(
                     let _ = outbox.0.send(frame);
                 }
 
-                if *upgrade_mode == UpgradeMode::Shared {
+                let should_resume_client = match *upgrade_mode {
+                    UpgradeMode::Shared => true,
+                    UpgradeMode::Independent => for_player.is_some(),
+                };
+                if should_resume_client {
                     if let Ok(frame) = encode(&S2C::StateChange(NetworkedGameState::Playing)) {
                         let _ = outbox.0.send(frame);
                     }
@@ -301,7 +326,9 @@ pub fn apply_weapon_upgrade(
             }
         }
 
-        next_state.set(GameState::Playing);
+        if *role == NetworkRole::Host || *role == NetworkRole::Solo {
+            next_state.set(GameState::Playing);
+        }
     }
 }
 

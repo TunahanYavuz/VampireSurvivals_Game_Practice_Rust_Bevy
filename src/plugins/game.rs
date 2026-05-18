@@ -253,6 +253,7 @@ fn prepare_atlases_and_spawn(
             player_config.starting_weapon.as_str(),
             &textures_assets,
         );
+        commands.entity(p2_entity).despawn();
     } else if *role != NetworkRole::Client {
         spawn_weapons_for_player(
             &mut commands,
@@ -613,8 +614,7 @@ pub fn play_pending_audio_events(
     }
     for audio_type in pending.0.drain(..) {
         if let Some(audio_type) = AudioType::from_u8(audio_type) {
-            audio.play_sound(&mut commands, &audio_type, PlaybackSettings::DESPAWN, &*role);
-
+            audio.play_local(&mut commands, &audio_type);
         }
     }
 }

@@ -1,14 +1,15 @@
-use bevy::audio::{Volume};
+use bevy::audio::Volume;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
-use crate::plugins::network::NetworkRole;
+use crate::plugins::network::{encode, NetOutbox, NetworkRole, S2C};
 
 pub struct GameAudioPlugin;
 
 impl Plugin for GameAudioPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_audio_assets);
+        app.add_systems(Startup, load_audio_assets)
+            .add_message::<PlayAudioEvent>()
+            .add_systems(Update, play_audio_events);
     }
 }
 
@@ -79,21 +80,38 @@ pub fn load_audio_assets(asset_server: Res<AssetServer>, mut commands: Commands)
     });
 }
 impl GameAudio {
-    pub fn play_sound(&self, commands: &mut Commands, audio_type: &AudioType, playback_mode: PlaybackSettings, role: &NetworkRole) {
-        match role {
-            NetworkRole::Solo => {commands.spawn((
-                AudioPlayer::new(self.audios.get(audio_type).unwrap().clone()),
-                playback_mode.with_volume(Volume::Linear(0.2)),
-            ));}
-            NetworkRole::Host => {
-                commands.spawn((
-                AudioPlayer::new(self.audios.get(audio_type).unwrap().clone()),
-                playback_mode.with_volume(Volume::Linear(0.2)),
-            ));
-                
+    pub fn play_local(&self, commands: &mut Commands, audio_type: &AudioType) {
+        commands.spawn((
+            AudioPlayer::new(self.audios.get(audio_type).unwrap().clone()),
+            PlaybackSettings::DESPAWN.with_volume(Volume::Linear(0.2)),
+        ));
+    }
+}
+
+#[derive(Message)]
+pub struct PlayAudioEvent {
+    pub audio_type: AudioType,
+}
+
+pub fn play_audio_events(
+    mut events: MessageReader<PlayAudioEvent>,
+    audio: Res<GameAudio>,
+    role: Res<NetworkRole>,
+    outbox: Option<Res<NetOutbox>>,
+    mut commands: Commands,
+) {
+    for event in events.read() {
+        audio.play_local(&mut commands, &event.audio_type);
+
+        if *role == NetworkRole::Host {
+            if let Some(outbox) = outbox.as_ref() {
+                let msg = S2C::AudioSpawned {
+                    audio_type: event.audio_type.to_u8(),
+                };
+                if let Ok(frame) = encode(&msg) {
+                    let _ = outbox.0.send(frame);
+                }
             }
-            NetworkRole::Client => {}
         }
-        
     }
 }

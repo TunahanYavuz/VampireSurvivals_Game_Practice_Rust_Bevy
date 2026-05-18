@@ -1,6 +1,7 @@
 // Upgrade selection UI systems and input handling.
 
 use crate::plugins::audio::GameAudioEntity;
+use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
     encode, NetOutbox, NetworkRole, NetworkedGameState, S2C, UpgradeMode,
@@ -14,7 +15,10 @@ use super::upgrades::{
 
 // ─────────────────────────── UI Setup ───────────────────────────────────
 
-pub fn create_upgrade_table_ui(mut commands: Commands) {
+#[derive(Component)]
+pub struct RemoteUpgradeNotice;
+
+pub fn spawn_upgrade_table_ui(commands: &mut Commands) -> Entity {
     commands.spawn((
         WeaponTable,
         Node {
@@ -33,16 +37,66 @@ pub fn create_upgrade_table_ui(mut commands: Commands) {
             ..default()
         },
         BackgroundColor(Color::srgba(0.7137, 0.7137, 0.7137, 0.92)),
-    ));
+    )).id()
+}
+
+pub fn create_upgrade_table_ui(
+    mut commands: Commands,
+    table: Query<Entity, With<WeaponTable>>,
+) {
+    if table.iter().next().is_some() {
+        return;
+    }
+    let _ = spawn_upgrade_table_ui(&mut commands);
+}
+
+pub fn spawn_remote_upgrade_notice(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    table: Query<Entity, With<WeaponTable>>,
+    notice: Query<Entity, With<RemoteUpgradeNotice>>,
+) {
+    if table.iter().next().is_some() || notice.iter().next().is_some() {
+        return;
+    }
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    commands.spawn((
+        RemoteUpgradeNotice,
+        Node {
+            width: Val::Percent(40.0),
+            height: Val::Percent(20.0),
+            margin: UiRect::all(Val::Auto),
+            display: Display::Flex,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.85)),
+    ))
+    .with_children(|parent| {
+        parent.spawn((
+            Text::new("Diger oyuncu silah yukseltmesi yapiyor"),
+            TextFont {
+                font,
+                font_size: 22.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+        ));
+    });
 }
 
 pub fn cleanup_upgrade_ui_on_choice(
     table: Query<Entity, With<WeaponTable>>,
+    notice: Query<Entity, With<RemoteUpgradeNotice>>,
     audio_entity: Query<Entity, With<GameAudioEntity>>,
     mut commands: Commands,
 ) {
     for table_entity in table.iter() {
         commands.entity(table_entity).try_despawn();
+    }
+    for notice_entity in notice.iter() {
+        commands.entity(notice_entity).despawn();
     }
     for audio_entity in audio_entity.iter() {
         commands.entity(audio_entity).despawn();
@@ -59,6 +113,16 @@ pub(crate) fn populate_upgrade_table(
     let Ok(table_entity) = table.single() else {
         return;
     };
+    populate_upgrade_table_entity(commands, table_entity, asset_server, locale, options);
+}
+
+pub(crate) fn populate_upgrade_table_entity(
+    commands: &mut Commands,
+    table_entity: Entity,
+    asset_server: &Res<AssetServer>,
+    locale: &Locale,
+    options: &[UpgradeOption],
+) {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
     let options_len = options.len() as f32;
 
@@ -155,11 +219,21 @@ pub fn show_upgrade_choices_on_level_up(
                     }
                 }
 
-                if *upgrade_mode == UpgradeMode::Shared {
-                    if let Ok(frame) =
-                        encode(&S2C::StateChange(NetworkedGameState::UpgradeSelection))
-                    {
-                        let _ = outbox.0.send(frame);
+                match *upgrade_mode {
+                    UpgradeMode::Shared => {
+                        if let Ok(frame) = encode(&S2C::StateChange(NetworkedGameState::HostUpgrade)) {
+                            let _ = outbox.0.send(frame);
+                        }
+                    }
+                    UpgradeMode::Independent => {
+                        let target_state = if event.player_index == 0 {
+                            NetworkedGameState::HostUpgrade
+                        } else {
+                            NetworkedGameState::RemoteUpgrade
+                        };
+                        if let Ok(frame) = encode(&S2C::StateChange(target_state)) {
+                            let _ = outbox.0.send(frame);
+                        }
                     }
                 }
             }
@@ -169,7 +243,56 @@ pub fn show_upgrade_choices_on_level_up(
             return;
         }
 
-        populate_upgrade_table(&mut commands, &table, &asset_server, &locale, &options);
+        if *role == NetworkRole::Host
+            && *upgrade_mode == UpgradeMode::Independent
+            && event.player_index == 1
+        {
+            return;
+        }
+
+        let table_entity = if table.iter().next().is_none() {
+            Some(spawn_upgrade_table_ui(&mut commands))
+        } else {
+            None
+        };
+
+        if let Some(table_entity) = table_entity {
+            populate_upgrade_table_entity(&mut commands, table_entity, &asset_server, &locale, &options);
+        } else {
+            populate_upgrade_table(&mut commands, &table, &asset_server, &locale, &options);
+        }
+    }
+}
+
+pub fn enter_host_upgrade_ui(
+    role: Res<NetworkRole>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    table: Query<Entity, With<WeaponTable>>,
+    notice: Query<Entity, With<RemoteUpgradeNotice>>,
+) {
+    if *role == NetworkRole::Host || *role == NetworkRole::Solo {
+        if table.iter().next().is_none() {
+            let _ = spawn_upgrade_table_ui(&mut commands);
+        }
+    } else {
+        spawn_remote_upgrade_notice(commands, asset_server, table, notice);
+    }
+}
+
+pub fn enter_remote_upgrade_ui(
+    role: Res<NetworkRole>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    table: Query<Entity, With<WeaponTable>>,
+    notice: Query<Entity, With<RemoteUpgradeNotice>>,
+) {
+    if *role == NetworkRole::Client {
+        if table.iter().next().is_none() {
+            let _ = spawn_upgrade_table_ui(&mut commands);
+        }
+    } else {
+        spawn_remote_upgrade_notice(commands, asset_server, table, notice);
     }
 }
 
@@ -180,8 +303,12 @@ pub fn handle_upgrade_input(
     upgrade_choices: Res<UpgradeChoices>,
     outbox: Option<Res<NetOutbox>>,
     game_mode: Res<UpgradeMode>,
+    state: Res<State<GameState>>,
 ) {
     if *game_mode == UpgradeMode::Shared && *role == NetworkRole::Client {
+        return;
+    }
+    if *state.get() == GameState::RemoteUpgrade && *role == NetworkRole::Host {
         return;
     }
     for (interaction, upgrade_button) in interaction_q.iter() {

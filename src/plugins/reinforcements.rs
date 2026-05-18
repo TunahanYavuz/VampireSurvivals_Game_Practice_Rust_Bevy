@@ -3,14 +3,12 @@ use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::prelude::*;
 use rand::Rng;
 use strum::{EnumCount, FromRepr};
-use crate::plugins::audio::GameAudio;
 use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Collectible, Enemy, XP};
 use crate::plugins::game_state::GameState;
-use crate::plugins::network::{NetIdCounter, NetworkIdentity, NetworkRole, VisualType};
-use crate::plugins::player::{Player, XPMagnetite};
+use crate::plugins::network::{NetIdCounter, NetworkIdentity, NetworkRole, UpgradeMode, VisualType};
+use crate::plugins::player::{GainXpEvent, Player, XPMagnetite};
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
-use crate::plugins::weapons::LevelUpEvent;
 
 pub struct ReinforcementsPlugin;
 impl Plugin for ReinforcementsPlugin {
@@ -46,7 +44,7 @@ pub fn spawn_reinforcement(
 ) {
     commands.spawn((
         Collectible,
-        XP{ is_collected: false, amount },
+        XP{ is_collected: false, amount, collected_by: None },
         NetworkIdentity {
             net_id: net_id_counter.next(),
             visual_type: VisualType::XpGem,
@@ -104,14 +102,20 @@ pub fn spawn_reinforcement(
 }
 
 pub fn collect_reinforcements(
-    mut player_query: Query<&Aabb, With<Player>>,
+    role: Res<NetworkRole>,
+    player_query: Query<(&Aabb, &Player), With<Player>>,
     mut reinforcements_q: Query<(&Aabb, Option<&mut Reinforcements>, Option<&mut XP>), With<Collectible>>,
 ) {
-    for player_aabb in player_query.iter_mut() {
+    if *role == NetworkRole::Client {
+        return;
+    }
+
+    for (player_aabb, player) in player_query.iter() {
         for (reinforcement_aabb, reinforcement, xp) in reinforcements_q.iter_mut() {
             if aabb_intersects(reinforcement_aabb, player_aabb) {
                 if let Some(mut xp) = xp {
                     xp.is_collected = true;
+                    xp.collected_by = Some(player.player_index);
                     continue;
                 }
                 if let Some(mut reinforcement) = reinforcement {
@@ -124,16 +128,19 @@ pub fn collect_reinforcements(
 }
 
 pub fn apply_reinforcements(
+    role: Res<NetworkRole>,
+    upgrade_mode: Res<UpgradeMode>,
     mut player_query: Query<&mut Player, With<Player>>,
     mut reinforcements_q: Query<(Option<&Reinforcements>, Option<&XP>, Entity), With<Collectible>>,
     xp_query: Query<Entity, (With<XP>, Without<XPMagnetite>)>,
     mut enemies: Query<&mut Enemy>,
     mut commands: Commands,
-    mut level_up_events: MessageWriter<LevelUpEvent>,
-    mut next_state: ResMut<NextState<GameState>>,
-    audio: Res<GameAudio>,
-    role: Res<NetworkRole>,
+    mut gain_xp_events: MessageWriter<GainXpEvent>,
 ) {
+    if *role == NetworkRole::Client {
+        return;
+    }
+
     // Find primary player (index 0) first; fall back to any alive player.
     let primary_entity = player_query
         .iter()
@@ -168,34 +175,25 @@ pub fn apply_reinforcements(
             }
         } else if let Some(xp) = xp {
             if xp.is_collected {
-                // Credit XP only to the primary player (P1 owns the level-up system).
-                if primary_entity {
-                    for mut player in player_query.iter_mut() {
-                        if player.player_index == 0 {
-                            player.gain_xp(
-                                xp.amount as f32,
-                                &mut level_up_events,
-                                &mut next_state,
-                                &mut commands,
-                                &audio,
-                                &*role,
-                            );
-                            break;
-                        }
+                let target_player_index = match *upgrade_mode {
+                    UpgradeMode::Shared => {
+                        if primary_entity { Some(0) } else { None }
                     }
-                } else {
-                    // No P1 alive — credit any remaining player.
-                    if let Some(mut player) = player_query.iter_mut().next() {
-                        player.gain_xp(
-                            xp.amount as f32,
-                            &mut level_up_events,
-                            &mut next_state,
-                            &mut commands,
-                            &audio,
-                            &*role,
-                        );
-                    }
+                    UpgradeMode::Independent => xp.collected_by,
+                };
+
+                if let Some(player_index) = target_player_index {
+                    gain_xp_events.write(GainXpEvent {
+                        player_index,
+                        amount: xp.amount as f32,
+                    });
+                } else if let Some(player) = player_query.iter_mut().next() {
+                    gain_xp_events.write(GainXpEvent {
+                        player_index: player.player_index,
+                        amount: xp.amount as f32,
+                    });
                 }
+
                 should_despawn = true;
             }
         }

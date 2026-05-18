@@ -10,5 +10,8 @@ pub enum GameState {
     Loading,
     Playing,
     GameOver,
-    UpgradeSelection,
+    /// Host is choosing upgrades; client shows a waiting notice.
+    HostUpgrade,
+    /// Other player is choosing upgrades; local input is paused.
+    RemoteUpgrade,
 }

@@ -8,7 +8,6 @@ use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::timers::{EnemySpawnTimer, GameTimer, MoveTimer};
 use bevy::asset::Assets;
-use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, };
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
@@ -92,6 +91,7 @@ impl Default for GameStageManager {
 pub struct XP {
     pub is_collected: bool,
     pub amount: i32,
+    pub collected_by: Option<u8>,
 }
 
 #[derive(Component)]
@@ -107,7 +107,7 @@ fn despawn_enemies(
     mut enemy_query: Query<(Entity, &mut Enemy, &Transform), With<Enemy>>,
     mut score: ResMut<GameScore>,
     textures: Res<TextureAssets>,
-    audio: Res<GameAudio>,
+    _audio: Res<GameAudio>,
     mut net_id_counter: ResMut<NetIdCounter>,
 ) {
     for (enemy_entity, mut enemy, transform) in enemy_query.iter_mut() {

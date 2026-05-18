@@ -1,12 +1,13 @@
 // Network handlers for upgrade flow.
 
+use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
-    NetworkRole, PendingClientUpgradeChoice, PendingUpgradeApplied, PendingUpgradeOptions,
+    NetworkRole, PendingClientUpgradeChoice, PendingUpgradeApplied, PendingUpgradeOptions, UpgradeMode,
 };
 use bevy::prelude::*;
 
-use super::upgrade_screen::populate_upgrade_table;
+use super::upgrade_screen::{populate_upgrade_table, populate_upgrade_table_entity, spawn_upgrade_table_ui};
 use super::upgrades::{
     upgrade_option_desc, upgrade_option_name, UpgradeChoices, UpgradeOption, UpgradeSelectedEvent,
     WeaponType, WeaponTable,
@@ -22,6 +23,9 @@ pub fn receive_net_upgrade_options(
     mut commands: Commands,
     table: Query<Entity, With<WeaponTable>>,
     asset_server: Res<AssetServer>,
+    upgrade_mode: Res<UpgradeMode>,
+    mut next_state: ResMut<NextState<GameState>>,
+    c_state: Res<State<GameState>>,
 ) {
     if *role != NetworkRole::Client {
         return;
@@ -50,6 +54,16 @@ pub fn receive_net_upgrade_options(
 
     upgrade_choices.options = options.clone();
     upgrade_choices.waiting_for_choice = true;
+    println!("Received upgrade options {:?} for player {:?}", upgrade_choices.options, upgrade_choices.for_player);
+    if *upgrade_mode == UpgradeMode::Independent && *c_state.get() != GameState::RemoteUpgrade {
+        next_state.set(GameState::RemoteUpgrade);
+    }
+
+    if table.iter().next().is_none() {
+        let table_entity = spawn_upgrade_table_ui(&mut commands);
+        populate_upgrade_table_entity(&mut commands, table_entity, &asset_server, &locale, &options);
+        return;
+    }
 
     populate_upgrade_table(&mut commands, &table, &asset_server, &locale, &options);
 }
@@ -87,4 +101,3 @@ pub fn receive_client_upgrade_choice(
         upgrade_events.write(UpgradeSelectedEvent { weapon_type: wt });
     }
 }
-
