@@ -1,16 +1,14 @@
-use crate::plugins::common::aabb_intersects;
-use crate::plugins::enemy::{Collectible, Enemy, XP};
-use crate::plugins::game_state::GameState;
-use crate::plugins::network::{
-    NetIdCounter, NetworkIdentity, NetworkRole, UpgradeMode, VisualType,
-};
-use crate::plugins::player::{GainXpEvent, Player, XPMagnetite};
-use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::{NoAutoAabb, NoFrustumCulling};
 use bevy::prelude::*;
 use rand::Rng;
 use strum::{EnumCount, FromRepr};
+use crate::plugins::common::aabb_intersects;
+use crate::plugins::enemy::{Collectible, Enemy, XP};
+use crate::plugins::game_state::GameState;
+use crate::plugins::network::{NetIdCounter, NetworkIdentity, NetworkRole, UpgradeMode, VisualType};
+use crate::plugins::player::{GainXpEvent, Player, XPMagnetite};
+use crate::plugins::texture_handling::{TextureAssets, TextureType};
 
 pub struct ReinforcementsPlugin;
 impl Plugin for ReinforcementsPlugin {
@@ -28,6 +26,7 @@ pub enum ReinforcementType {
     Magnet,
     HealthPack,
     AtomBomb,
+
 }
 
 #[derive(Component)]
@@ -45,11 +44,7 @@ pub fn spawn_reinforcement(
 ) {
     commands.spawn((
         Collectible,
-        XP {
-            is_collected: false,
-            amount,
-            collected_by: None,
-        },
+        XP{ is_collected: false, amount, collected_by: None },
         NetworkIdentity {
             net_id: net_id_counter.next(),
             visual_type: VisualType::XpGem,
@@ -72,28 +67,13 @@ pub fn spawn_reinforcement(
             let sprite = match reinforcement_type {
                 ReinforcementType::Magnet => {
                     v_type = VisualType::Magnet;
-                    Sprite::from_image(textures.textures.get(&TextureType::Magnet).unwrap().clone())
-                }
+                    Sprite::from_image(textures.textures.get(&TextureType::Magnet).unwrap().clone()) },
                 ReinforcementType::HealthPack => {
                     v_type = VisualType::HealthPack;
-                    Sprite::from_image(
-                        textures
-                            .textures
-                            .get(&TextureType::HealthPack)
-                            .unwrap()
-                            .clone(),
-                    )
-                }
+                    Sprite::from_image(textures.textures.get(&TextureType::HealthPack).unwrap().clone()) },
                 ReinforcementType::AtomBomb => {
                     v_type = VisualType::AtomBomb;
-                    Sprite::from_image(
-                        textures
-                            .textures
-                            .get(&TextureType::AtomBomb)
-                            .unwrap()
-                            .clone(),
-                    )
-                }
+                    Sprite::from_image(textures.textures.get(&TextureType::AtomBomb).unwrap().clone()) },
             };
 
             let offset_position = position + Vec3::new(30.0, 0.0, 0.0);
@@ -124,10 +104,7 @@ pub fn spawn_reinforcement(
 pub fn collect_reinforcements(
     role: Res<NetworkRole>,
     player_query: Query<(&Aabb, &Player), With<Player>>,
-    mut reinforcements_q: Query<
-        (&Aabb, Option<&mut Reinforcements>, Option<&mut XP>),
-        With<Collectible>,
-    >,
+    mut reinforcements_q: Query<(&Aabb, Option<&mut Reinforcements>, Option<&mut XP>), With<Collectible>>,
 ) {
     if *role == NetworkRole::Client {
         return;
@@ -144,6 +121,7 @@ pub fn collect_reinforcements(
                 if let Some(mut reinforcement) = reinforcement {
                     reinforcement.is_collected = true;
                 }
+
             }
         }
     }
@@ -164,7 +142,10 @@ pub fn apply_reinforcements(
     }
 
     // Find primary player (index 0) first; fall back to any alive player.
-    let primary_entity = player_query.iter().find(|p| p.player_index == 0).is_some();
+    let primary_entity = player_query
+        .iter()
+        .find(|p| p.player_index == 0)
+        .is_some();
 
     for (reinforcement, xp, entity) in reinforcements_q.iter_mut() {
         let mut should_despawn = false;
@@ -196,11 +177,7 @@ pub fn apply_reinforcements(
             if xp.is_collected {
                 let target_player_index = match *upgrade_mode {
                     UpgradeMode::Shared => {
-                        if primary_entity {
-                            Some(0)
-                        } else {
-                            None
-                        }
+                        if primary_entity { Some(0) } else { None }
                     }
                     UpgradeMode::Independent => xp.collected_by,
                 };

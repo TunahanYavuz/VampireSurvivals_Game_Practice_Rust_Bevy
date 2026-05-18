@@ -202,12 +202,7 @@ fn setup_settings_ui(
                     },
                     LanguageLabel,
                 ));
-                spawn_small_button(
-                    row,
-                    &font,
-                    locale.t("toggle"),
-                    SettingsButton::ToggleLanguage,
-                );
+                spawn_small_button(row, &font, locale.t("toggle"), SettingsButton::ToggleLanguage);
             });
 
             // Back button
@@ -358,42 +353,10 @@ fn handle_settings_buttons(
 fn refresh_settings_labels(
     settings: Res<Settings>,
     locale: Res<Locale>,
-    mut master_q: Query<
-        &mut Text,
-        (
-            With<MasterVolumeLabel>,
-            Without<MusicVolumeLabel>,
-            Without<SfxVolumeLabel>,
-            Without<LanguageLabel>,
-        ),
-    >,
-    mut music_q: Query<
-        &mut Text,
-        (
-            With<MusicVolumeLabel>,
-            Without<MasterVolumeLabel>,
-            Without<SfxVolumeLabel>,
-            Without<LanguageLabel>,
-        ),
-    >,
-    mut sfx_q: Query<
-        &mut Text,
-        (
-            With<SfxVolumeLabel>,
-            Without<MasterVolumeLabel>,
-            Without<MusicVolumeLabel>,
-            Without<LanguageLabel>,
-        ),
-    >,
-    mut lang_q: Query<
-        &mut Text,
-        (
-            With<LanguageLabel>,
-            Without<MasterVolumeLabel>,
-            Without<MusicVolumeLabel>,
-            Without<SfxVolumeLabel>,
-        ),
-    >,
+    mut master_q: Query<&mut Text, (With<MasterVolumeLabel>, Without<MusicVolumeLabel>, Without<SfxVolumeLabel>, Without<LanguageLabel>)>,
+    mut music_q: Query<&mut Text, (With<MusicVolumeLabel>, Without<MasterVolumeLabel>, Without<SfxVolumeLabel>, Without<LanguageLabel>)>,
+    mut sfx_q: Query<&mut Text, (With<SfxVolumeLabel>, Without<MasterVolumeLabel>, Without<MusicVolumeLabel>, Without<LanguageLabel>)>,
+    mut lang_q: Query<&mut Text, (With<LanguageLabel>, Without<MasterVolumeLabel>, Without<MusicVolumeLabel>, Without<SfxVolumeLabel>)>,
 ) {
     if settings.is_changed() {
         if let Ok(mut t) = master_q.single_mut() {

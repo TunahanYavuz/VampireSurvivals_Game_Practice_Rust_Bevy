@@ -9,8 +9,11 @@ pub mod upgrades_net;
 
 pub use core::WeaponPlugin;
 pub use effects::{
-    WeaponEffectPlugin, attach_trail_effect, raygun_spark_config, spawn_explosion_effect,
-    spawn_muzzle_flash,
+    attach_trail_effect, raygun_spark_config,
+    spawn_explosion_effect, spawn_muzzle_flash, WeaponEffectPlugin,
 };
 pub use stats::spawn_weapons_for_player;
-pub use upgrades::{LevelUpEvent, UpgradePlugin, WeaponType};
+pub use upgrades::{
+    LevelUpEvent, UpgradePlugin, WeaponType,
+};
+

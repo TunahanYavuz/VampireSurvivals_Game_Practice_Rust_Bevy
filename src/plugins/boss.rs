@@ -18,10 +18,12 @@ pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<BossSpawnTracker>().add_systems(
-            Update,
-            (spawn_boss, show_boss_warning).run_if(in_state(GameState::Playing)),
-        );
+        app.init_resource::<BossSpawnTracker>()
+            .add_systems(
+                Update,
+                (spawn_boss, show_boss_warning)
+                    .run_if(in_state(GameState::Playing)),
+            );
     }
 }
 
