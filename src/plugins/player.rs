@@ -94,6 +94,7 @@ impl Player {
         next_state: &mut NextState<GameState>,
         mut commands: &mut Commands,
         audio: &GameAudio,
+        role: &NetworkRole,
     ) {
         self.xp += amount;
 
@@ -101,7 +102,7 @@ impl Player {
             self.xp -= self.xp_to_next_level;
             self.xp_to_next_level *= 1.5;
             self.level += 1;
-            audio.play_sound(&mut commands, &AudioType::CollectXp, PlaybackSettings::DESPAWN);
+            audio.play_sound(&mut commands, &AudioType::CollectXp, PlaybackSettings::DESPAWN, role);
 
             message_writer.write(LevelUpEvent {
                 level: self.level,

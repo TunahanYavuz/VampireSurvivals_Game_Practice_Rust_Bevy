@@ -2,7 +2,7 @@ use crate::plugins::common::GameEntity;
 use crate::plugins::enemy::GameStageManager;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
-use crate::plugins::network::{ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingEntitySnapshots, PendingWeaponFxEvents, PendingWeaponStateEvents, VisualType, S2C};
+use crate::plugins::network::{ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingAudioEvents, PendingEntitySnapshots, PendingWeaponFxEvents, PendingWeaponStateEvents, VisualType, S2C};
 use crate::plugins::player::{Player, flush_stat_snapshot};
 use crate::plugins::score::GameScore;
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
@@ -18,6 +18,7 @@ use bevy::prelude::*;
 use crate::plugins::boss::BossSpawnTracker;
 use crate::plugins::config::Config;
 use std::collections::HashSet;
+use crate::plugins::audio::{AudioType, GameAudio};
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 
 pub struct GamePlugin;
@@ -49,7 +50,7 @@ impl Plugin for GamePlugin {
             // Client: apply incoming entity snapshots to the ghost world.
             .add_systems(
                 Update,
-                (handle_client_weapon_fx, handle_client_weapon_state, flush_stat_snapshot, client_entity_sync).run_if(in_state(GameState::Playing)),
+                (handle_client_weapon_fx, handle_client_weapon_state, flush_stat_snapshot, client_entity_sync, play_pending_audio_events).run_if(in_state(GameState::Playing)),
             );
     }
 }
@@ -209,18 +210,7 @@ fn prepare_atlases_and_spawn(
         .id();
 
 
-    if *role != NetworkRole::Solo {
-        spawn_weapons_for_player(
-            &mut commands,
-            p1_entity,
-            Vec3::new(-50.0, 0.0, 0.0),
-            &mut meshes,
-            &mut materials,
-            player_config.starting_weapon.as_str(),
-            &textures_assets,
-        );
-        return;
-    }
+
 
     // Spawn Player 2 (Arrow keys / Client) — always spawned on all machines.
     let p2 = Player {
@@ -253,7 +243,17 @@ fn prepare_atlases_and_spawn(
         .id();
 
     // Client: spawn P2's weapons; Host/Solo: also spawn P2 weapons.
-    if *role != NetworkRole::Client {
+    if *role == NetworkRole::Solo {
+        spawn_weapons_for_player(
+            &mut commands,
+            p1_entity,
+            Vec3::new(-50.0, 0.0, 0.0),
+            &mut meshes,
+            &mut materials,
+            player_config.starting_weapon.as_str(),
+            &textures_assets,
+        );
+    } else if *role != NetworkRole::Client {
         spawn_weapons_for_player(
             &mut commands,
             p2_entity,
@@ -274,8 +274,6 @@ fn prepare_atlases_and_spawn(
             &textures_assets,
         );
     }
-
-
     next_state.set(GameState::Playing);
 }
 
@@ -601,4 +599,22 @@ fn spawn_ghost_image(
             NoAutoAabb,
         ))
         .id()
+}
+
+pub fn play_pending_audio_events(
+    mut pending: ResMut<PendingAudioEvents>,
+    audio: Res<GameAudio>,
+    role: Res<NetworkRole>,
+    mut commands: Commands,
+){
+    if *role != NetworkRole::Client {
+        pending.0.clear();
+        return;
+    }
+    for audio_type in pending.0.drain(..) {
+        if let Some(audio_type) = AudioType::from_u8(audio_type) {
+            audio.play_sound(&mut commands, &audio_type, PlaybackSettings::DESPAWN, &*role);
+
+        }
+    }
 }

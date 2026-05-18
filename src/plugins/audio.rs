@@ -1,6 +1,8 @@
 use bevy::audio::{Volume};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+use crate::plugins::network::NetworkRole;
 
 pub struct GameAudioPlugin;
 
@@ -10,7 +12,7 @@ impl Plugin for GameAudioPlugin {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Clone, Debug,)]
 pub enum AudioType {
     EnemyHit,
     CollectXp,
@@ -21,6 +23,36 @@ pub enum AudioType {
     SwordProjectileFire,
     SwordProjectileImpact,
     RaygunRayFire,
+}
+
+impl AudioType {
+    pub(crate) fn from_u8(p0: u8) -> Option<Self> {
+        match p0 {
+            0 => Some(AudioType::EnemyHit),
+            1 => Some(AudioType::CollectXp),
+            2 => Some(AudioType::RocketProjectileFire),
+            3 => Some(AudioType::RocketProjectileImpact),
+            4 => Some(AudioType::LaserProjectileFire),
+            5 => Some(AudioType::LaserProjectileImpact),
+            6 => Some(AudioType::SwordProjectileFire),
+            7 => Some(AudioType::SwordProjectileImpact),
+            8 => Some(AudioType::RaygunRayFire),
+            _ => None,
+        }
+    }
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            AudioType::EnemyHit => 0,
+            AudioType::CollectXp => 1,
+            AudioType::RocketProjectileFire => 2,
+            AudioType::RocketProjectileImpact => 3,
+            AudioType::LaserProjectileFire => 4,
+            AudioType::LaserProjectileImpact => 5,
+            AudioType::SwordProjectileFire => 6,
+            AudioType::SwordProjectileImpact => 7,
+            AudioType::RaygunRayFire => 8,
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -47,10 +79,21 @@ pub fn load_audio_assets(asset_server: Res<AssetServer>, mut commands: Commands)
     });
 }
 impl GameAudio {
-    pub fn play_sound(&self, commands: &mut Commands, audio_type: &AudioType, playback_mode: PlaybackSettings) {
-        commands.spawn((
-            AudioPlayer::new(self.audios.get(audio_type).unwrap().clone()),
-            playback_mode.with_volume(Volume::Linear(0.2)),
+    pub fn play_sound(&self, commands: &mut Commands, audio_type: &AudioType, playback_mode: PlaybackSettings, role: &NetworkRole) {
+        match role {
+            NetworkRole::Solo => {commands.spawn((
+                AudioPlayer::new(self.audios.get(audio_type).unwrap().clone()),
+                playback_mode.with_volume(Volume::Linear(0.2)),
+            ));}
+            NetworkRole::Host => {
+                commands.spawn((
+                AudioPlayer::new(self.audios.get(audio_type).unwrap().clone()),
+                playback_mode.with_volume(Volume::Linear(0.2)),
             ));
+                
+            }
+            NetworkRole::Client => {}
+        }
+        
     }
 }

@@ -7,7 +7,7 @@ use crate::plugins::audio::GameAudio;
 use crate::plugins::common::aabb_intersects;
 use crate::plugins::enemy::{Collectible, Enemy, XP};
 use crate::plugins::game_state::GameState;
-use crate::plugins::network::{NetIdCounter, NetworkIdentity, VisualType};
+use crate::plugins::network::{NetIdCounter, NetworkIdentity, NetworkRole, VisualType};
 use crate::plugins::player::{Player, XPMagnetite};
 use crate::plugins::texture_handling::{TextureAssets, TextureType};
 use crate::plugins::weapons::LevelUpEvent;
@@ -132,6 +132,7 @@ pub fn apply_reinforcements(
     mut level_up_events: MessageWriter<LevelUpEvent>,
     mut next_state: ResMut<NextState<GameState>>,
     audio: Res<GameAudio>,
+    role: Res<NetworkRole>,
 ) {
     // Find primary player (index 0) first; fall back to any alive player.
     let primary_entity = player_query
@@ -177,6 +178,7 @@ pub fn apply_reinforcements(
                                 &mut next_state,
                                 &mut commands,
                                 &audio,
+                                &*role,
                             );
                             break;
                         }
@@ -190,6 +192,7 @@ pub fn apply_reinforcements(
                             &mut next_state,
                             &mut commands,
                             &audio,
+                            &*role,
                         );
                     }
                 }

@@ -33,6 +33,7 @@ use std::{
     thread,
     time::Duration,
 };
+use crate::plugins::audio::{AudioType, GameAudio};
 use crate::plugins::game_state::GameState;
 
 /// TCP port the host listens on.
@@ -76,6 +77,9 @@ pub enum S2C {
         visual_type: VisualType,
         owner_net_id: u32,
     },
+    AudioSpawned {
+        audio_type: u8,
+    }
 }
 
 /// A compact representation of `GameState` that can be sent over the network.
@@ -159,6 +163,9 @@ impl NetIdCounter {
         self.0
     }
 }
+
+#[derive(Resource, Default)]
+pub struct PendingAudioEvents(pub Vec<u8>);
 
 // drain_inbox içine S2C::WeaponFxSpawned ve S2C::WeaponStateChanged geldiğinde bu listeye pushlayın.#[derive(Resource, Default)]
 #[derive(Resource, Default)]
@@ -372,6 +379,7 @@ impl Plugin for NetworkPlugin {
             .init_resource::<PendingStateChange>()
             .init_resource::<PendingWeaponStateEvents>()
             .init_resource::<PendingWeaponFxEvents>()
+            .init_resource::<PendingAudioEvents>()
             .add_systems(
                 Update,
                 (
@@ -585,6 +593,7 @@ fn drain_inbox(
     mut pending_state: ResMut<PendingStateChange>,
     mut pending_weapon_fx_events: ResMut<PendingWeaponFxEvents>,
     mut pending_weapon_state_events: ResMut<PendingWeaponStateEvents>,
+    mut pending_audio_events: ResMut<PendingAudioEvents>,
 ) {
     let Some(inbox) = inbox else {
         return;
@@ -650,6 +659,11 @@ fn drain_inbox(
                                 owner_net_id,
                             })
                         }
+                        S2C::AudioSpawned {
+                            audio_type,
+                        } => {
+                            pending_audio_events.0.push(audio_type);
+                        }
                     }
                 }
             }
@@ -657,6 +671,8 @@ fn drain_inbox(
         }
     }
 }
+
+
 
 /// Apply a pending game-state change (received from the host) on the client.
 fn apply_pending_state(
