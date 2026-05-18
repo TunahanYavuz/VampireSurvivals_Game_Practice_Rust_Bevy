@@ -209,6 +209,18 @@ fn prepare_atlases_and_spawn(
         .id();
 
 
+    if *role != NetworkRole::Solo {
+        spawn_weapons_for_player(
+            &mut commands,
+            p1_entity,
+            Vec3::new(-50.0, 0.0, 0.0),
+            &mut meshes,
+            &mut materials,
+            player_config.starting_weapon.as_str(),
+            &textures_assets,
+        );
+        return;
+    }
 
     // Spawn Player 2 (Arrow keys / Client) — always spawned on all machines.
     let p2 = Player {
