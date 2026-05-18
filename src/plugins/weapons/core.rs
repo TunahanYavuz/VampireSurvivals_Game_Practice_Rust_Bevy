@@ -76,6 +76,7 @@ impl Default for RayGunWeapon {
 #[derive(Component, Clone, Copy, PartialEq)]
 pub struct RocketWeapon {
     pub explosion_radius: f32,
+    pub angle_index: u8,
 }
 
 /// Mermi tipi - sadece tip belirteci
@@ -429,7 +430,7 @@ pub fn fire_laser_weapons(
 pub fn fire_rocket_weapons(
     mut commands: Commands,
     time: Res<Time>,
-    mut weapons: Query<(&mut Weapon, &RocketWeapon), With<RocketWeapon>>,
+    mut weapons: Query<(&mut Weapon, &mut RocketWeapon), With<RocketWeapon>>,
     players: Query<&Transform, With<Player>>,
     enemies: Query<&Transform, With<Enemy>>,
     texture_assets: Res<TextureAssets>,
@@ -438,7 +439,7 @@ pub fn fire_rocket_weapons(
     mut audio_events: MessageWriter<PlayAudioEvent>,
     outbox: Option<Res<NetOutbox>>,
 ) {
-    for (mut weapon, rocket) in weapons.iter_mut() {
+    for (mut weapon, mut rocket) in weapons.iter_mut() {
         weapon.fire_timer.tick(time.delta());
 
         if !weapon.fire_timer.just_finished() {
@@ -449,12 +450,12 @@ pub fn fire_rocket_weapons(
             continue;
         };
 
-        let Some(target_pos) = find_nearest_enemy(player_transform.translation, &enemies) else {
-            continue;
-        };
-
-        let direction = (target_pos - player_transform.translation).normalize();
+        let angles_deg = [0.0_f32, 60.0, 120.0, 180.0, 240.0, 300.0];
+        let angle_deg = angles_deg[(rocket.angle_index % angles_deg.len() as u8) as usize];
+        let angle_rad = angle_deg.to_radians();
+        let direction = Vec3::new(angle_rad.cos(), angle_rad.sin(), 0.0);
         let angle = direction.y.atan2(direction.x);
+
         spawn_muzzle_flash(
             &mut commands,
             player_transform.translation,
@@ -497,6 +498,7 @@ pub fn fire_rocket_weapons(
                 .with_rotation(Quat::from_rotation_z(angle)),
             GlobalTransform::default(),
         )).id();
+        rocket.angle_index += 1;
         attach_trail_effect(&mut commands, projectile_entity, WeaponType::Rocket, &texture_assets);
         audio_events.write(PlayAudioEvent { audio_type: AudioType::RocketProjectileFire });
     }

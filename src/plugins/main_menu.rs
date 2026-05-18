@@ -12,6 +12,7 @@ impl Plugin for MainMenuPlugin {
                 Update,
                 (handle_menu_buttons, button_hover_effect).run_if(in_state(GameState::MainMenu)),
             )
+            .add_systems(Update, button_hover_effect.run_if(in_state(GameState::MainMenu).or(in_state(GameState::Settings).or(in_state(GameState::HostUpgrade).or(in_state(GameState::RemoteUpgrade))))))
             .add_systems(OnExit(GameState::MainMenu), cleanup_menu);
     }
 }
@@ -112,7 +113,7 @@ fn handle_menu_buttons(
 }
 
 fn button_hover_effect(
-    interactions_q: Query<(&Interaction, Entity), (With<MenuButton>, Changed<Interaction>)>,
+    interactions_q: Query<(&Interaction, Entity), (With<Button>, Changed<Interaction>)>,
     mut colors: Query<&mut BackgroundColor>,
 ) {
     for (interaction, button) in &interactions_q {

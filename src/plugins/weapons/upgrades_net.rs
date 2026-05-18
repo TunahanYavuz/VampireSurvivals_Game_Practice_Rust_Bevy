@@ -54,7 +54,6 @@ pub fn receive_net_upgrade_options(
 
     upgrade_choices.options = options.clone();
     upgrade_choices.waiting_for_choice = true;
-    println!("Received upgrade options {:?} for player {:?}", upgrade_choices.options, upgrade_choices.for_player);
     if *upgrade_mode == UpgradeMode::Independent && *c_state.get() != GameState::RemoteUpgrade {
         next_state.set(GameState::RemoteUpgrade);
     }

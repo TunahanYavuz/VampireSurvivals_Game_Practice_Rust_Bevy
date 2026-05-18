@@ -102,6 +102,7 @@ pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity) {
         },
         RocketWeapon {
             explosion_radius: rocket_base_range,
+            angle_index: 0,
         },
         WeaponLevel {
             level: 1,
