@@ -166,8 +166,8 @@ pub fn apply_reinforcements(
                     }
                     ReinforcementType::AtomBomb => {
                         for mut enemy in enemies.iter_mut() {
-                            enemy.should_despawn = true;
                             enemy.drops_loot = false;
+                            enemy.health = 0;
                         }
                     }
                 }

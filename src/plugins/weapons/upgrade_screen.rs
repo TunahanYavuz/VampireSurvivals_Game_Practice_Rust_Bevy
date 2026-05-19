@@ -40,16 +40,6 @@ pub fn spawn_upgrade_table_ui(commands: &mut Commands) -> Entity {
     )).id()
 }
 
-pub fn create_upgrade_table_ui(
-    mut commands: Commands,
-    table: Query<Entity, With<WeaponTable>>,
-) {
-    if table.iter().next().is_some() {
-        return;
-    }
-    let _ = spawn_upgrade_table_ui(&mut commands);
-}
-
 pub fn spawn_remote_upgrade_notice(
     mut commands: Commands,
     asset_server: Res<AssetServer>,

@@ -234,11 +234,11 @@ pub fn fire_raygun_weapons(
                 ParticleEmitter {
                     enabled: true,
                     spawn_timer: Timer::from_seconds(0.04, TimerMode::Repeating),
-                    particles_per_spawn: 8,
+                    particles_per_spawn: distance.abs() as u32 / 10_u32,
                     config: raygun_spark_config(&texture_assets),
                     offset: Vec3::ZERO,
                     spawn_mode: SpawnMode::Box {
-                        size: Vec2::new(1.0, 1.0),
+                        size: Vec2::new(1.0, 0.2),
                     },
                     lifetime: None,
                 },
@@ -465,7 +465,6 @@ pub fn fire_rocket_weapons(
         With<RocketWeapon>,
     >,
     players: Query<&Transform, With<Player>>,
-    enemies: Query<&Transform, With<Enemy>>,
     texture_assets: Res<TextureAssets>,
     mut net_id_counter: ResMut<NetIdCounter>,
     role: Res<NetworkRole>,

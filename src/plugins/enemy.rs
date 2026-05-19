@@ -35,6 +35,7 @@ impl Plugin for EnemyPlugin {
                     spawn_enemies,
                     follow,
                     enemy_collision_with_enemy,
+                    mark_as_dead,
                     despawn_enemies,
                     apply_stage_to_existing_enemies,
                     apply_enemy_scaling,
@@ -52,7 +53,6 @@ pub struct Enemy {
     pub speed: f32,
     pub damage: i32,
     pub xp_drop: i32,
-    pub should_despawn: bool,
     pub drops_loot: bool,
     pub base_health: i32,
     pub base_speed: f32,
@@ -66,7 +66,6 @@ impl Default for Enemy {
             speed: 50.0,
             damage: 10,
             xp_drop: 10,
-            should_despawn: false,
             drops_loot: true,
             base_health: 100,
             base_speed: 50.0,
@@ -115,23 +114,31 @@ pub struct Collectible;
 pub struct EnemySprit {
     pub index: usize,
 }
+#[derive(Component)]
+pub struct Dead;
+
+fn mark_as_dead(
+    mut commands: Commands,
+    enemy_query: Query<(&mut Enemy, Entity), With<Enemy>>
+){
+    for (enemy, entity) in enemy_query.iter() {
+        if enemy.health <= 0 {
+            if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                entity_commands.insert_if_new(Dead);
+            }
+        }
+    }
+}
 
 fn despawn_enemies(
     mut commands: Commands,
-    mut enemy_query: Query<(Entity, &mut Enemy, &Transform), With<Enemy>>,
+    mut enemy_query: Query<(Entity, &mut Enemy, &Transform), (With<Enemy>, With<Dead>)>,
     mut score: ResMut<GameScore>,
     textures: Res<TextureAssets>,
     _audio: Res<GameAudio>,
     mut net_id_counter: ResMut<NetIdCounter>,
 ) {
-    for (enemy_entity, mut enemy, transform) in enemy_query.iter_mut() {
-        if enemy.health <= 0 && !enemy.should_despawn {
-            enemy.should_despawn = true;
-        }
-
-        if !enemy.should_despawn {
-            continue;
-        }
+    for (enemy_entity, enemy, transform) in enemy_query.iter_mut() {
 
         if enemy.drops_loot {
             spawn_reinforcement(
@@ -314,7 +321,6 @@ fn spawn_enemy_entity(
                 speed,
                 damage: damage as i32,
                 xp_drop: base.xp_drop,
-                should_despawn: false,
                 drops_loot: true,
                 base_health: base.health,
                 base_speed: base.speed,

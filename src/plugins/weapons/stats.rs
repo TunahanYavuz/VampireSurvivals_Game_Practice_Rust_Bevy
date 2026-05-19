@@ -86,13 +86,14 @@ pub fn spawn_weapons_for_player(
 }
 
 pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity) {
+    let (damage, fire_rate, speed) = (10.0, 1.0, 130.0);
     commands.spawn((
         GameEntity,
         Weapon {
             owner: player_entity,
-            damage: 50.0,
-            fire_timer: Timer::from_seconds(0.3, TimerMode::Repeating),
-            speed: 200.0,
+            damage,
+            fire_timer: Timer::from_seconds(fire_rate, TimerMode::Repeating),
+            speed,
         },
         LaserWeapon {
             color: Color::srgb(0.0, 0.5, 0.0),
@@ -102,9 +103,9 @@ pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity) {
             weapon_type: WeaponType::Laser,
         },
         WeaponStats {
-            base_damage: 50.0,
-            base_fire_rate: 0.3,
-            base_speed: 200.0,
+            base_damage: damage,
+            base_fire_rate: fire_rate,
+            base_speed: speed,
             base_range: 0.0,
             damage_growth_per_level: 0.18,
             cooldown_reduction_per_level: 0.06,
@@ -117,13 +118,14 @@ pub fn spawn_lazer_weapon(commands: &mut Commands, player_entity: Entity) {
 
 pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity) {
     let rocket_base_range = 100.0;
+    let (damage, fire_rate, speed) = (25.0, 2.0, 100.0);
     commands.spawn((
         GameEntity,
         Weapon {
             owner: player_entity,
-            damage: 100.0,
-            fire_timer: Timer::from_seconds(0.2, TimerMode::Repeating),
-            speed: 200.0,
+            damage,
+            fire_timer: Timer::from_seconds(fire_rate, TimerMode::Repeating),
+            speed,
         },
         RocketWeapon {
             explosion_radius: rocket_base_range,
@@ -134,9 +136,9 @@ pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity) {
             weapon_type: WeaponType::Rocket,
         },
         WeaponStats {
-            base_damage: 50.0,
-            base_fire_rate: 0.2,
-            base_speed: 200.0,
+            base_damage: damage,
+            base_fire_rate: fire_rate,
+            base_speed: speed,
             base_range: rocket_base_range,
             damage_growth_per_level: 0.22,
             cooldown_reduction_per_level: 0.05,
@@ -148,13 +150,14 @@ pub fn spawn_rocket_weapon(commands: &mut Commands, player_entity: Entity) {
 }
 
 pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity) {
+    let (damage, fire_rate, speed) = (1.0, 2.0, 0.0);
     commands.spawn((
         GameEntity,
         Weapon {
             owner: player_entity,
-            damage: 1.0,
-            fire_timer: Timer::from_seconds(2.0, TimerMode::Repeating),
-            speed: 0.0,
+            damage,
+            fire_timer: Timer::from_seconds(fire_rate, TimerMode::Repeating),
+            speed,
         },
         RayGunWeapon::default(),
         WeaponLevel {
@@ -162,9 +165,9 @@ pub fn spawn_raygun_weapon(commands: &mut Commands, player_entity: Entity) {
             weapon_type: WeaponType::RayGun,
         },
         WeaponStats {
-            base_damage: 1.0,
-            base_fire_rate: 0.1,
-            base_speed: 0.0,
+            base_damage: damage,
+            base_fire_rate: fire_rate,
+            base_speed: speed,
             base_range: 0.0,
             damage_growth_per_level: 0.20,
             cooldown_reduction_per_level: 0.03,
@@ -187,6 +190,7 @@ pub fn spawn_flame_weapon(
     let flame_radius = 80.0;
 
     commands.entity(player_entity).with_children(|parent| {
+        let (damage, fire_rate, speed) = (5.0, 0.1, 0.0);
         parent.spawn((
             Mesh2d(meshes.add(Annulus::new(0.8, 1.0))),
             MeshMaterial2d(
@@ -194,19 +198,19 @@ pub fn spawn_flame_weapon(
             ),
             FlameWeapon { radius: base_range },
             Weapon {
-                fire_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
-                damage: 5.0,
+                fire_timer: Timer::from_seconds(fire_rate, TimerMode::Repeating),
+                damage,
                 owner: player_entity,
-                speed: 0.0,
+                speed,
             },
             WeaponLevel {
                 level: 1,
                 weapon_type: WeaponType::Flame,
             },
             WeaponStats {
-                base_damage: 5.0,
-                base_fire_rate: 0.1,
-                base_speed: 0.0,
+                base_damage: damage,
+                base_fire_rate: fire_rate,
+                base_speed: speed,
                 base_range,
                 damage_growth_per_level: 0.16,
                 cooldown_reduction_per_level: 0.04,
