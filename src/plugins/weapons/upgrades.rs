@@ -1,7 +1,7 @@
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{
-    encode, NetOutbox, NetworkRole, NetworkedGameState, S2C, UpgradeMode,
+    NetOutbox, NetworkRole, NetworkedGameState, S2C, UpgradeMode, encode,
 };
 use crate::plugins::particle_effects::{ParticleEmitter, SpawnMode};
 use crate::plugins::player::Player;
@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use super::core::{FlameWeapon, LaserWeapon, RayGunWeapon, RocketWeapon, Weapon};
 use super::stats::{
-    spawn_flame_weapon, spawn_lazer_weapon, spawn_raygun_weapon, spawn_rocket_weapon,
-    spawn_throwing_weapon, SwordWeapon, WeaponStats,
+    SwordWeapon, WeaponStats, spawn_flame_weapon, spawn_lazer_weapon, spawn_raygun_weapon,
+    spawn_rocket_weapon, spawn_throwing_weapon,
 };
 use super::upgrade_screen::{
     cleanup_upgrade_ui_on_choice, enter_host_upgrade_ui, enter_remote_upgrade_ui,
@@ -33,29 +33,18 @@ impl Plugin for UpgradePlugin {
             .add_message::<UpgradeSelectedEvent>()
             .add_systems(OnEnter(GameState::HostUpgrade), enter_host_upgrade_ui)
             .add_systems(OnEnter(GameState::RemoteUpgrade), enter_remote_upgrade_ui)
-            .add_systems(
-                Update,
-                show_upgrade_choices_on_level_up,
-            )
-            .add_systems(
-                Update,
-                receive_net_upgrade_options,
-            )
-            .add_systems(
-                OnExit(GameState::HostUpgrade),
-                cleanup_upgrade_ui_on_choice,
-            )
+            .add_systems(Update, show_upgrade_choices_on_level_up)
+            .add_systems(Update, receive_net_upgrade_options)
+            .add_systems(OnExit(GameState::HostUpgrade), cleanup_upgrade_ui_on_choice)
             .add_systems(
                 OnExit(GameState::RemoteUpgrade),
                 cleanup_upgrade_ui_on_choice,
             )
             .add_systems(
                 Update,
-                handle_upgrade_input
-                    .run_if(
-                        in_state(GameState::HostUpgrade)
-                            .or(in_state(GameState::RemoteUpgrade)),
-                    ),
+                handle_upgrade_input.run_if(
+                    in_state(GameState::HostUpgrade).or(in_state(GameState::RemoteUpgrade)),
+                ),
             )
             .add_systems(
                 Update,
@@ -65,8 +54,7 @@ impl Plugin for UpgradePlugin {
                     receive_client_upgrade_choice,
                 )
                     .run_if(
-                        in_state(GameState::HostUpgrade)
-                            .or(in_state(GameState::RemoteUpgrade)),
+                        in_state(GameState::HostUpgrade).or(in_state(GameState::RemoteUpgrade)),
                     ),
             );
     }
@@ -294,12 +282,10 @@ pub fn apply_weapon_upgrade(
                     }
                     WeaponType::RayGun => {
                         if let Some(mut raygun) = raygun {
-                            raygun.pierce_count += 1;
+                            raygun.pierce_count = 3 + ((new_level - 1).max(0) as u32 / 2);
                         }
                     }
-                    WeaponType::Sword => {
-                        if let Some(_sword) = sword {}
-                    }
+                    WeaponType::Sword => if let Some(_sword) = sword {},
                 }
             }
         }
