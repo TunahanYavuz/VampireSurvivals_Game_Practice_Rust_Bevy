@@ -21,6 +21,10 @@ Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta
 - **Animasyonlu Karakterler**: Sprite tabanlı karakter animasyonları
 - **Otomatik Kamera Takibi**: Yumuş kamera hareketi
 
+### Çoklu Oyuncu Desteği
+- **LAN Çoklu Oyuncu**: Aynı ağda birden fazla oyuncu
+- **Skor Tablosu**: Oyuncuların skorlarını gösteren bir tablo
+
 #### Düşman Sistemi
 - **Dinamik Spawn Sistemi**: Artan zorlukla otomatik düşman oluşturma
 - **Akıllı AI**: Düşmanlar oyuncuyu takip eder ve kovalar
@@ -29,7 +33,7 @@ Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta
 #### Silah Sistemleri
 - **Lazer Silahlar**: Özelleştirilebilir renk ve güç seviyeleri
 - **Roket/Mermi Silahları**: Projektil tabanlı saldırı sistemi
-- **Yakın Dövüş Silahları**: Kalkan ve benzeri oyuncuya bağlı silahlar
+- **Yakın Dövüş Silahları**: Ateş çemberi ve benzeri oyuncuya bağlı silahlar
 - **Otomatik Ateşleme**: Silahlar otomatik olarak ateş eder
 
 #### İlerleme Sistemi
@@ -55,13 +59,13 @@ Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta
 
 ## 🎮 Kontroller
 
-| Tuş         | Fonksiyon                             |
-|-------------|---------------------------------------|
-| **W/A/S/D** | Karakter hareketi                     |
-| **R**       | Oyunu yeniden başlat (Game Over'da)   |
-| **Mouse**   | Yükseltme seçimi (Seviye atladığında) |
-| **ESC**     | Oyundan çık                           |
-| **C**       | XP' leri topla                        |
+| Tuş         | Fonksiyon                                          |
+|-------------|----------------------------------------------------|
+| **W/A/S/D** | Karakter hareketi                                  |
+| **R**       | Oyunu yeniden başlat (Game Over'da (Kaldırılacak)) |
+| **Mouse**   | Yükseltme seçimi (Seviye atladığında)              |
+| **ESC**     | Escape menü                                        |
+| **C**       | XP' leri topla (Kaldırılacak)                      |
 
 
 ## 🛠️ Teknik Detaylar
@@ -72,6 +76,10 @@ Bu proje, Bevy oyun motoru kullanılarak Vampire Survivors tarzında bir hayatta
 - **ECS**: Entity Component System mimarisi
 - **Bağımlılıklar**:
   - `rand` - Rastgele sayı üretimi
+  - `bincode` - Veri serileştirme
+  - `strum` - Enum yardımcıları
+  - `ron` - Yapılandırma dosyaları için
+  - `serde` - Veri serileştirme/deserileştirme
 
 ### Sistem Gereksinimleri
 - **OS**: Windows 10/11, Linux, macOS
@@ -99,39 +107,6 @@ cargo run
 cargo run --release
 ```
 
-### Build Profilleri
-```toml
-# Development: Hızlı derleme (opt-level 1)
-# Dependencies: Yüksek optimizasyon (opt-level 3)
-# Release: Tam optimizasyon (opt-level 3, LTO aktif)
-```
-
-## 📁 Proje Yapısı
-
-```
-gameDeveloping/
-├── src/
-│   ├── main.rs                 # Ana oyun döngüsü ve sistem kurulumu
-│   └── plugins/
-│       ├── player.rs           # Oyuncu hareketi ve davranışı
-│       ├── enemy.rs            # Düşman spawn ve AI sistemi
-│       ├── weapons.rs          # Silah sistemleri ve ateşleme
-│       ├── weapon_stats.rs     # Silah konfigürasyonu ve stats
-│       ├── weapon_upgrade.rs   # Yükseltme seçim sistemi
-│       ├── timers.rs           # Oyun zamanlayıcıları ve spawn oranları
-│       ├── aabb.rs             # Çarpışma algılama (AABB)
-│       ├── game_state.rs       # Oyun durumu yönetimi
-│       ├── score.rs            # Skor takibi ve UI
-│       ├── ground.rs           # Zemin oluşturma sistemi
-│       └── texture_handling.rs # Asset yönetimi
-├── assets/                     # Oyun varlıkları
-│   ├── sprites/               # Karakter ve düşman sprite'ları
-│   ├── weapons/               # Silah grafikleri
-│   └── ui/                    # Kullanıcı arayüzü öğeleri
-├── Cargo.toml                 # Proje bağımlılıkları
-└── README.md                  # Bu dosya
-```
-
 ## 🎮 Oynanış
 
 Dalga dalga gelen düşmanlara karşı hayatta kalmaya çalışın, hareket edin ve XP toplayın. Seviye atladıkça, silahlarınızı güçlendirmek için rastgele yükseltmeler arasından seçim yapın. Her yükseltme, silahlarınızı iyileştirir veya yeni silahlar ekler. Oyun, düşmanlar daha sık ve güçlü hale geldikçe giderek daha zorlayıcı hale gelir.
@@ -147,7 +122,6 @@ Bu proje aktif olarak geliştirilmektedir. Gelecek sürümlerdeki olası iyileş
 - Boss karşılaşmaları
 - Zorluk seviyeleri
 - Başarım sistemi
-- Kayıt/yükleme sistemi
 - Çoklu oyuncu karakter seçenekleri
 
 ## 🤝 Katkıda Bulunma
@@ -166,4 +140,4 @@ Bu proje yalnızca eğitim ve eğlence amaçlıdır.
 
 ⭐ Projeyi beğendiyseniz bir yıldız bırakmayı unutmayın!
 
-*Rust ve Bevy ile ❤️ ile yapılmıştır*
+*Rust ve Bevy ile yapılmıştır*
