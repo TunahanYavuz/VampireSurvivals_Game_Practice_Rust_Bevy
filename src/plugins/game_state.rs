@@ -4,6 +4,9 @@ use bevy::prelude::States;
 pub enum GameState {
     #[default]
     MainMenu,
+    // Host/Client Escape Menu
+    HostEscapeMenu,
+    RemoteEscapeMenu,
     /// Host/Client role selection, IP entry, and upgrade-mode choice.
     Lobby,
     Settings,

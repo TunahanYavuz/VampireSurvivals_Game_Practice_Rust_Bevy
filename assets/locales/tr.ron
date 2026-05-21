@@ -4,6 +4,13 @@
     "menu_play": "Oyna",
     "menu_settings": "Ayarlar",
     "menu_quit": "Çık",
+    
+    // Escape Menü
+    "escape_menu_title": "Menü",
+    "escape_menu_resume": "Devam Et",
+    "escape_menu_settings": "Ayarlar",
+    "escape_menu_quit": "Çık",
+    "escape_menu_waiting": "Diğer oyuncuyu bekleniyor...",
 
     // Lobi
     "lobby_title": "Lobi",

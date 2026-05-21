@@ -2,6 +2,8 @@ use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;
+use bevy::tasks::futures_lite::StreamExt;
+use crate::plugins::settings::SettingsOrigin;
 
 pub struct MainMenuPlugin;
 
@@ -12,7 +14,7 @@ impl Plugin for MainMenuPlugin {
                 Update,
                 (handle_menu_buttons, button_hover_effect).run_if(in_state(GameState::MainMenu)),
             )
-            .add_systems(Update, button_hover_effect.run_if(in_state(GameState::MainMenu).or(in_state(GameState::Settings).or(in_state(GameState::HostUpgrade).or(in_state(GameState::RemoteUpgrade))))))
+            .add_systems(Update, button_hover_effect.run_if(in_state(GameState::MainMenu).or(in_state(GameState::Settings)).or(in_state(GameState::HostUpgrade)).or(in_state(GameState::RemoteUpgrade)).or(in_state(GameState::HostEscapeMenu)).or(in_state(GameState::RemoteEscapeMenu))))
             .add_systems(OnExit(GameState::MainMenu), cleanup_menu);
     }
 }
@@ -98,12 +100,16 @@ fn handle_menu_buttons(
     interactions_q: Query<(&Interaction, &MenuButton), Changed<Interaction>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut exit: MessageWriter<AppExit>,
+    mut settings_origin: ResMut<SettingsOrigin>,
 ) {
     for (interaction, button) in &interactions_q {
         if *interaction == Interaction::Pressed {
             match button {
                 MenuButton::Play => next_state.set(GameState::Lobby),
-                MenuButton::Settings => next_state.set(GameState::Settings),
+                MenuButton::Settings => {
+                    *settings_origin = SettingsOrigin::MainMenu;
+                    next_state.set(GameState::Settings)
+                },
                 MenuButton::Quit => {
                     exit.write(AppExit::Success);
                 }

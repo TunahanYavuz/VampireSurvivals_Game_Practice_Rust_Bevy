@@ -18,3 +18,4 @@ pub mod settings;
 pub mod boss;
 pub mod network;
 pub mod lobby;
+pub mod escape_menu;

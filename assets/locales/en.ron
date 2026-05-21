@@ -4,6 +4,13 @@
     "menu_play": "Play",
     "menu_settings": "Settings",
     "menu_quit": "Quit",
+    
+    // Escape Menu
+    "escape_menu_title": "Menu",
+    "escape_menu_resume": "Resume",
+    "escape_menu_settings": "Settings",
+    "escape_menu_quit": "Quit",
+    "escape_menu_waiting": "Waiting for other player...",
 
     // Lobby
     "lobby_title": "Lobby",

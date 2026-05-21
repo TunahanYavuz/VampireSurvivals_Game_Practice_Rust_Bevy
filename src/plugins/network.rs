@@ -47,6 +47,7 @@ pub enum C2S {
     PlayerInput(InputState),
     /// Client's P2 chose an upgrade; payload is the `WeaponType` index (0-4).
     UpgradeChosen(u8),
+    StateChange(NetworkedGameState),
 }
 
 /// Messages the host sends to the client every frame / on events.
@@ -88,7 +89,10 @@ pub enum NetworkedGameState {
     Playing,
     HostUpgrade,
     RemoteUpgrade,
+    HostEscapeMenu,
+    RemoteEscapeMenu,
     GameOver,
+    MainMenu,
 }
 
 impl From<NetworkedGameState> for GameState {
@@ -98,6 +102,9 @@ impl From<NetworkedGameState> for GameState {
             NetworkedGameState::HostUpgrade => GameState::HostUpgrade,
             NetworkedGameState::RemoteUpgrade => GameState::RemoteUpgrade,
             NetworkedGameState::GameOver => GameState::GameOver,
+            NetworkedGameState::HostEscapeMenu => GameState::HostEscapeMenu,
+            NetworkedGameState::RemoteEscapeMenu => GameState::RemoteEscapeMenu,
+            NetworkedGameState::MainMenu => GameState::MainMenu,
         }
     }
 }
@@ -339,6 +346,8 @@ pub struct PendingClientUpgradeChoice(pub Option<u8>);
 /// Game-state change received from the host; applied by `apply_pending_state`.
 #[derive(Resource, Default)]
 pub struct PendingStateChange(pub Option<NetworkedGameState>);
+#[derive(Resource, Default)]
+pub struct PendingClientStateChange(pub Option<NetworkedGameState>);
 
 /// The most recent entity-snapshot list received from the host.
 /// Consumed each frame by the client's unified sync system.
@@ -378,6 +387,7 @@ impl Plugin for NetworkPlugin {
             .init_resource::<PendingUpgradeApplied>()
             .init_resource::<PendingClientUpgradeChoice>()
             .init_resource::<PendingStateChange>()
+            .init_resource::<PendingClientStateChange>()
             .init_resource::<PendingWeaponStateEvents>()
             .init_resource::<PendingWeaponFxEvents>()
             .init_resource::<PendingAudioEvents>()
@@ -592,6 +602,7 @@ fn drain_inbox(
     mut pending_applied: ResMut<PendingUpgradeApplied>,
     mut pending_client_choice: ResMut<PendingClientUpgradeChoice>,
     mut pending_state: ResMut<PendingStateChange>,
+    mut pending_client_state: ResMut<PendingClientStateChange>,
     mut pending_weapon_fx_events: ResMut<PendingWeaponFxEvents>,
     mut pending_weapon_state_events: ResMut<PendingWeaponStateEvents>,
     mut pending_audio_events: ResMut<PendingAudioEvents>,
@@ -611,6 +622,9 @@ fn drain_inbox(
                         }
                         C2S::UpgradeChosen(idx) => {
                             pending_client_choice.0 = Some(idx);
+                        }
+                        C2S::StateChange(new_state) => {
+                            pending_client_state.0 = Some(new_state);
                         }
                     }
                 }
@@ -679,12 +693,17 @@ fn drain_inbox(
 fn apply_pending_state(
     role: Res<NetworkRole>,
     mut pending: ResMut<PendingStateChange>,
+    mut remote_pending_state: ResMut<PendingClientStateChange>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if *role != NetworkRole::Client {
-        return;
+    if *role == NetworkRole::Client {
+        if let Some(new_state) = pending.0.take() {
+            next_state.set(new_state.into());
+        }
     }
-    if let Some(new_state) = pending.0.take() {
-        next_state.set(new_state.into());
+    else if *role == NetworkRole::Host {
+        if let Some(new_state) = remote_pending_state.0.take() {
+            next_state.set(new_state.into());
+        }
     }
 }

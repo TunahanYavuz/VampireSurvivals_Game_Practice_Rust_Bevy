@@ -12,6 +12,7 @@ impl Plugin for ScorePlugin {
         app.init_resource::<GameScore>()
             .add_systems(Startup, setup_score_ui)
             .add_systems(OnEnter(GameState::Playing), visible_score_ui)
+            .add_systems(OnEnter(GameState::MainMenu), hide_score_ui)
             .add_systems(Update, update_score_ui.run_if(in_state(GameState::Playing)));
     }
 }
@@ -82,8 +83,15 @@ pub fn update_score_ui(
         );
     }
 }
+
 fn visible_score_ui(mut query: Query<&mut Visibility, With<ScoreText>>) {
     for mut visibility in query.iter_mut() {
         *visibility = Visibility::Visible;
+    }
+}
+
+fn hide_score_ui(mut query: Query<&mut Visibility, With<ScoreText>>) {
+    for mut visibility in query.iter_mut() {
+        *visibility = Visibility::Hidden;
     }
 }

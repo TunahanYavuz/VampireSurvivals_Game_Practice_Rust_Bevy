@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
-
+use crate::plugins::escape_menu::EscapeMenu;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::{Language, Locale};
 
@@ -18,6 +18,13 @@ pub struct Settings {
     pub music_volume: f32,
     pub sfx_volume: f32,
     pub language: Language,
+}
+
+#[derive(Resource, Clone, Default)]
+pub enum SettingsOrigin{
+    #[default]
+    MainMenu,
+    EscapeMenu,
 }
 
 impl Default for Settings {
@@ -66,6 +73,7 @@ impl Plugin for SettingsPlugin {
 
         app.insert_resource(settings)
             .insert_resource(locale)
+            .init_resource::<SettingsOrigin>()
             .add_systems(OnEnter(GameState::Settings), setup_settings_ui)
             .add_systems(
                 Update,
@@ -313,6 +321,7 @@ fn handle_settings_buttons(
     mut settings: ResMut<Settings>,
     mut locale: ResMut<Locale>,
     mut next_state: ResMut<NextState<GameState>>,
+    settings_origin: Res<SettingsOrigin>,
 ) {
     for (interaction, button) in &interaction_q {
         if *interaction != Interaction::Pressed {
@@ -343,7 +352,10 @@ fn handle_settings_buttons(
             }
             SettingsButton::Back => {
                 settings.save();
-                next_state.set(GameState::MainMenu);
+                match *settings_origin {
+                    SettingsOrigin::MainMenu => {next_state.set(GameState::MainMenu);}
+                    SettingsOrigin::EscapeMenu => {next_state.set(GameState::HostEscapeMenu);}
+                }
             }
         }
     }

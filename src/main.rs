@@ -3,6 +3,7 @@ use crate::plugins::audio::GameAudioPlugin;
 use crate::plugins::boss::BossPlugin;
 use crate::plugins::config::ConfigPlugin;
 use crate::plugins::enemy::EnemyPlugin;
+use crate::plugins::escape_menu::EscapeMenuPlugin;
 use crate::plugins::game::GamePlugin;
 use crate::plugins::game_state::GameState;
 use crate::plugins::ground::GroundPlugin;
@@ -40,9 +41,10 @@ fn main() {
                 TimerPlugin,
         ))
         .add_plugins((
-            MainMenuPlugin,
-                      LobbyPlugin,
-                      SettingsPlugin,
+                MainMenuPlugin,
+                LobbyPlugin,
+                SettingsPlugin,
+                EscapeMenuPlugin,
         ))
         .init_state::<GameState>()
 

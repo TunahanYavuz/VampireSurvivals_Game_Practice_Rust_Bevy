@@ -1,5 +1,6 @@
 use crate::plugins::common::GameEntity;
 use crate::plugins::enemy::GameStageManager;
+use crate::plugins::enemy::Collectible;
 use crate::plugins::game_state::GameState;
 use crate::plugins::locale::Locale;
 use crate::plugins::network::{ClientEntityMap, GhostEntity, NetIdCounter, NetworkRole, PendingAudioEvents, PendingEntitySnapshots, PendingWeaponFxEvents, PendingWeaponStateEvents, VisualType, S2C};
@@ -34,11 +35,15 @@ impl Plugin for GamePlugin {
             // State transitions
             .add_systems(
                 OnEnter(GameState::Loading),
-                (cleanup_game, clear_client_map, reset_session_resources).chain(),
+                (cleanup_game, cleanup_collectibles, clear_client_map, reset_session_resources).chain(),
             )
             .add_systems(
                 OnEnter(GameState::GameOver),
-                (cleanup_game, clear_client_map, show_game_over_screen).chain(),
+                (cleanup_game, cleanup_collectibles, clear_client_map, show_game_over_screen).chain(),
+            )
+            .add_systems(
+                OnEnter(GameState::MainMenu),
+                (cleanup_game, cleanup_collectibles, clear_client_map, reset_session_resources, reset_on_main_menu).chain(),
             )
             .add_systems(Update, restart_on_key.run_if(in_state(GameState::GameOver)))
             // Loading state
@@ -290,6 +295,15 @@ fn cleanup_game(
     score.score = 0;
 }
 
+fn cleanup_collectibles(
+    mut commands: Commands,
+    collectibles: Query<Entity, With<Collectible>>,
+) {
+    for entity in collectibles.iter() {
+        commands.entity(entity).try_despawn();
+    }
+}
+
 /// Client tarafında ghost varlık haritasını sıfırla (restart / loading geçişinde).
 fn clear_client_map(mut client_map: ResMut<ClientEntityMap>) {
     client_map.0.clear();
@@ -329,6 +343,44 @@ fn show_game_over_screen(mut commands: Commands, locale: Res<Locale>) {
     ));
 }
 
+fn reset_runtime_resources(
+    atlases: &mut Atlases,
+    spawn_timer: &mut EnemySpawnTimer,
+    move_timer: &mut MoveTimer,
+    reduce_timer: &mut PlayerHealthReduceTimer,
+    game_timer: &mut GameTimer,
+    stage_manager: &mut GameStageManager,
+    boss_tracker: &mut BossSpawnTracker,
+) {
+    *atlases = Atlases::default();
+    *spawn_timer = EnemySpawnTimer::default();
+    *move_timer = MoveTimer::default();
+    *reduce_timer = PlayerHealthReduceTimer::default();
+    *game_timer = GameTimer::default();
+    *stage_manager = GameStageManager::default();
+    *boss_tracker = BossSpawnTracker::default();
+}
+
+fn reset_on_main_menu(
+    mut atlases: ResMut<Atlases>,
+    mut spawn_timer: ResMut<EnemySpawnTimer>,
+    mut move_timer: ResMut<MoveTimer>,
+    mut reduce_timer: ResMut<PlayerHealthReduceTimer>,
+    mut game_timer: ResMut<GameTimer>,
+    mut stage_manager: ResMut<GameStageManager>,
+    mut boss_tracker: ResMut<BossSpawnTracker>,
+) {
+    reset_runtime_resources(
+        &mut *atlases,
+        &mut *spawn_timer,
+        &mut *move_timer,
+        &mut *reduce_timer,
+        &mut *game_timer,
+        &mut *stage_manager,
+        &mut *boss_tracker,
+    );
+}
+
 /// R tuşu ile restart
 fn restart_on_key(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -342,13 +394,15 @@ fn restart_on_key(
     mut boss_tracker: ResMut<BossSpawnTracker>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) {
-        *atlases = Atlases::default();
-        *spawn_timer = EnemySpawnTimer::default();
-        *move_timer = MoveTimer::default();
-        *reduce_timer = PlayerHealthReduceTimer::default();
-        *game_timer = GameTimer::default();
-        *stage_manager = GameStageManager::default();
-        *boss_tracker = BossSpawnTracker::default();
+        reset_runtime_resources(
+            &mut *atlases,
+            &mut *spawn_timer,
+            &mut *move_timer,
+            &mut *reduce_timer,
+            &mut *game_timer,
+            &mut *stage_manager,
+            &mut *boss_tracker,
+        );
         next_state.set(GameState::Loading);
     }
 }
